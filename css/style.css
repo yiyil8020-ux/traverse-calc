@@ -280,10 +280,11 @@ body {
 
 /* 结果表 */
 .result-table { font-size: 13px; }
-.result-table tbody tr:nth-child(even) { background: #f8fafc; }
-.result-table tbody tr:hover { background: #f0f9ff; }
-.result-table .row-start { background: #fef9c3 !important; }
-.result-table .row-start td { color: #854d0e; font-weight: 600; }
+.result-table .row-point { background: #ffffff; }
+.result-table .row-edge { background: #f8fafc; color: var(--text-muted); }
+.result-table tbody tr:hover { background: #f0f9ff !important; }
+.result-table .row-sum { background: #fefce8; font-weight: 600; color: #854d0e; }
+.result-table .row-sum td { border-top: 2px solid #e2e8f0; }
 .result-table .col-num.small { font-size: 12px; color: var(--text-muted); }
 .result-table .col-num.vbeta { font-size: 12px; color: var(--text-muted); font-weight: 500; }
 .result-table .empty { padding: 24px; color: var(--text-muted); }

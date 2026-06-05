@@ -2,7 +2,7 @@
 // 计算是「按按钮触发」模式（不实时重算）；改输入只 markDirty + 渲染反算显示
 // 依赖：dms.js, traverse.js, storage.js, sketch.js
 
-import { dmsToDecimal, decimalToDms, formatDms, formatSeconds, azimuthBetween, DEG } from './dms.js';
+import { dmsToDecimal, decimalToDms, formatDms, formatSeconds, azimuthBetween, normalize360, DEG } from './dms.js';
 import { calcClosedTraverse, calcAttachedTraverse } from './traverse.js';
 import {
   saveProject, listProjects, getProject, deleteProject, newProjectId,
@@ -69,14 +69,57 @@ let currentProjectId = null;
 // ─────────────────────────────────────────────
 function recompute() {
   try {
+    let startAzDec = resolveStartAz();
+    let stationsList = JSON.parse(JSON.stringify(state.stations));
+    let convertedModel = false;
+
+    // 用户模型 -> 算法模型转换
+    // 如果首站名等于起算点名，说明用户给的 startAzimuth 是“后视方位角”，且角度对应的是测站本身
+    // 算法需要的是“第一条边方位角”，且角度对应边终点
+    if (stationsList.length >= 3 && stationsList[0].name.trim() && stationsList[0].name.trim() === state.startPoint.name.trim()) {
+      convertedModel = true;
+      const st0 = stationsList[0];
+      const beta0 = dmsToDecimal(st0.deg, st0.min, st0.sec);
+      // α_第一条边 = α_后视 + β0 ± 180 (左角+) / α_第一条边 = α_后视 - β0 ± 180 (右角-)
+      if (state.angleType === 'left') {
+        startAzDec = normalize360(startAzDec + beta0 - 180);
+      } else {
+        startAzDec = normalize360(startAzDec - beta0 + 180);
+      }
+      // 重组 stations：把第 i 站的角度和第 i-1 站的距离配对
+      // 最后闭合点（A1）需要借用最末尾的一个测站的距离
+      const newStations = [];
+      for (let i = 1; i < stationsList.length; i++) {
+        newStations.push({
+          name: stationsList[i].name,
+          deg: stationsList[i].deg,
+          min: stationsList[i].min,
+          sec: stationsList[i].sec,
+          distance: stationsList[i-1].distance
+        });
+      }
+      // 对于闭合导线，末尾应该回到A1
+      if (state.mode === 'closed') {
+        newStations.push({
+          name: st0.name, // A1
+          deg: st0.deg,   // 这里其实闭合差计算不会用到，算法里只算n个角
+          min: st0.min,
+          sec: st0.sec,
+          distance: stationsList[stationsList.length - 1].distance
+        });
+      }
+      stationsList = newStations;
+    }
+
     const params = {
       startPoint: state.startPoint,
-      startAzimuth: resolveStartAz(),
+      startAzimuth: startAzDec,
       angleType: state.angleType,
-      stations: state.stations,
+      stations: stationsList,
       kLimit: 1 / state.kLimit,
       integerMode: state.integerMode
     };
+
     if (state.mode === 'attached') {
       params.endPoint = state.endPoint;
       params.endAzimuth = resolveEndAz();
@@ -84,6 +127,15 @@ function recompute() {
     } else {
       lastResult = calcClosedTraverse(params);
     }
+
+    if (lastResult) {
+      lastResult.convertedModel = convertedModel;
+      lastResult.originalStations = state.stations; // 保留原始用户输入供渲染表格用
+      if (convertedModel) {
+        lastResult.originalStartAz = resolveStartAz();
+      }
+    }
+
   } catch (e) {
     console.warn('计算失败:', e);
     lastResult = null;
@@ -283,12 +335,15 @@ function renderInputs() {
 // ─────────────────────────────────────────────
 // 输出区：从 lastResult 渲染
 // ─────────────────────────────────────────────
+// 输出区：从 lastResult 渲染
 function renderResult() {
   const tbody = $('#result-body');
   tbody.innerHTML = '';
 
   if (!lastResult) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">请填写完整数据后点「🚀 计算」</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">请填写完整数据后点「🚀 计算」</td></tr>';
+    $('#sum-beta').textContent = '—';
+    $('#sum-d').textContent = '—';
     $('#fbeta').textContent = '—';
     $('#fbeta').className = '';
     $('#fx').textContent = '—';
@@ -301,40 +356,16 @@ function renderResult() {
   }
 
   const c = lastResult.closure;
-  tbody.appendChild(buildResultRow({
-    name: state.startPoint.name + ' (起)',
-    betaRaw: null,
-    betaAdj: null,
-    az: resolveStartAz(),
-    dist: '',
-    vx: '', vy: '', dx: '', dy: '',
-    x: state.startPoint.x,
-    y: state.startPoint.y,
-    isStart: true
-  }));
 
-  lastResult.adjustedAngles.forEach((a, i) => {
-    const inc = lastResult.increments[i];
-    const coord = lastResult.coordinates[i + 1];
-    tbody.appendChild(buildResultRow({
-      name: a.name,
-      betaRaw: a.original,
-      betaAdj: a.adjusted,
-      vBeta: a.correction,
-      az: lastResult.azimuths[i],
-      dist: inc.distance,
-      dx: inc.dx,
-      dy: inc.dy,
-      vx: inc.vx,
-      vy: inc.vy,
-      adjDx: inc.adjustedDx,
-      adjDy: inc.adjustedDy,
-      x: coord.x,
-      y: coord.y,
-      isStart: false
-    }));
-  });
+  let sumBeta = 0;
+  lastResult.adjustedAngles.forEach(a => sumBeta += a.original);
+  let sumD = 0;
+  lastResult.increments.forEach(inc => sumD += inc.distance);
+  let sumVx = 0, sumVy = 0, sumDx = 0, sumDy = 0;
+  lastResult.increments.forEach(inc => { sumVx += inc.vx; sumVy += inc.vy; sumDx += inc.dx; sumDy += inc.dy; });
 
+  $('#sum-beta').textContent = formatDms(sumBeta);
+  $('#sum-d').textContent = sumD.toFixed(3) + ' m';
   $('#fbeta').textContent = formatSeconds(c.fBeta);
   $('#fbeta').className = c.fBetaOver ? 'over' : 'ok';
   $('#fbeta-limit').textContent = `±${c.fBetaLimit.toFixed(1)}″`;
@@ -355,44 +386,159 @@ function renderResult() {
   } else {
     $('#warning-bar').hidden = true;
   }
+
+  // 渲染交错表格
+  let currentStartAz = lastResult.convertedModel ? lastResult.originalStartAz : resolveStartAz();
+
+  // 首站 (A1)
+  const isStartPointMatching = lastResult.convertedModel;
+  tbody.appendChild(buildResultRow({
+    type: 'point',
+    name: state.startPoint.name,
+    betaRaw: null, betaAdj: null, vBeta: null,
+    x: state.startPoint.x, y: state.startPoint.y
+  }));
+
+  if (isStartPointMatching) {
+    // 渲染后视方位角边
+    const startBName = state.startBMode ? (state.startB?.name || 'B') : 'B';
+    tbody.appendChild(buildResultRow({
+      type: 'edge',
+      name: `${startBName} → ${state.startPoint.name}`,
+      az: currentStartAz, dist: null, dx: null, dy: null, vx: null, vy: null, adjDx: null, adjDy: null
+    }));
+  }
+
+  for (let i = 0; i < lastResult.adjustedAngles.length; i++) {
+    const a = lastResult.adjustedAngles[i];
+    const inc = lastResult.increments[i];
+    const coord = lastResult.coordinates[i + 1];
+
+    if (!isStartPointMatching && i === 0) {
+       tbody.appendChild(buildResultRow({
+          type: 'edge',
+          name: `${state.startPoint.name} → ${a.name}`,
+          az: lastResult.azimuths[i],
+          dist: inc.distance, dx: inc.dx, dy: inc.dy, vx: inc.vx, vy: inc.vy, adjDx: inc.adjustedDx, adjDy: inc.adjustedDy
+       }));
+       tbody.appendChild(buildResultRow({
+          type: 'point',
+          name: a.name,
+          betaRaw: a.original, vBeta: a.correction, betaAdj: a.adjusted,
+          x: coord.x, y: coord.y
+       }));
+    } else if (isStartPointMatching) {
+       // isStartPointMatching 的情况，我们有 N 个角，N条边。
+       tbody.appendChild(buildResultRow({
+          type: 'point',
+          name: a.name, // A1, A2...
+          betaRaw: a.original, vBeta: a.correction, betaAdj: a.adjusted,
+          x: i === 0 ? state.startPoint.x : lastResult.coordinates[i].x, y: i === 0 ? state.startPoint.y : lastResult.coordinates[i].y
+       }));
+       
+       let edgeName = '';
+       if (i < lastResult.adjustedAngles.length - 1) {
+           edgeName = `${a.name} → ${lastResult.adjustedAngles[i+1].name}`;
+       } else {
+           edgeName = `${a.name} → ${state.mode === 'closed' ? state.startPoint.name : state.endPoint.name}`;
+       }
+       
+       tbody.appendChild(buildResultRow({
+          type: 'edge',
+          name: edgeName,
+          az: lastResult.azimuths[i],
+          dist: inc.distance, dx: inc.dx, dy: inc.dy, vx: inc.vx, vy: inc.vy, adjDx: inc.adjustedDx, adjDy: inc.adjustedDy
+       }));
+    } else {
+       let edgeName = '';
+       if (i < lastResult.adjustedAngles.length - 1) {
+           edgeName = `${a.name} → ${lastResult.adjustedAngles[i+1].name}`;
+       } else {
+           edgeName = `${a.name} → ${state.mode === 'closed' ? state.startPoint.name : state.endPoint.name}`;
+       }
+       tbody.appendChild(buildResultRow({
+          type: 'edge',
+          name: edgeName,
+          az: lastResult.azimuths[i],
+          dist: inc.distance, dx: inc.dx, dy: inc.dy, vx: inc.vx, vy: inc.vy, adjDx: inc.adjustedDx, adjDy: inc.adjustedDy
+       }));
+       tbody.appendChild(buildResultRow({
+          type: 'point',
+          name: edgeName.split('→')[1].trim(),
+          betaRaw: null, vBeta: null, betaAdj: null,
+          x: coord.x, y: coord.y
+       }));
+    }
+  }
+  
+  if (isStartPointMatching && state.mode === 'closed') {
+    tbody.appendChild(buildResultRow({
+       type: 'point',
+       name: state.startPoint.name,
+       betaRaw: null, vBeta: null, betaAdj: null,
+       x: state.startPoint.x, y: state.startPoint.y
+    }));
+  }
+
+  // Sum Row
+  const vBetaText = sumBeta === 0 ? '' : formatDms(sumBeta);
+  const corrDec = state.integerMode ? 3 : 4;
+  const tr = el('tr', { class: 'row-sum' },
+    el('td', { class: 'col-name' }, 'Σ'),
+    el('td', { class: 'col-dms' }, vBetaText),
+    el('td', { class: 'col-num vbeta' }, ''),
+    el('td', { class: 'col-dms' }, ''),
+    el('td', { class: 'col-dms' }, ''),
+    el('td', { class: 'col-num' }, sumD.toFixed(3)),
+    el('td', { class: 'col-num small' }, formatSigned(sumDx, 3)),
+    el('td', { class: 'col-num small' }, formatSigned(sumDy, 3)),
+    el('td', { class: 'col-num small' }, formatSigned(sumVx, corrDec)),
+    el('td', { class: 'col-num small' }, formatSigned(sumVy, corrDec)),
+    el('td', { class: 'col-num' }, formatSigned(sumDx + sumVx, 3)),
+    el('td', { class: 'col-num' }, formatSigned(sumDy + sumVy, 3)),
+    el('td', { class: 'col-num' }, ''),
+    el('td', { class: 'col-num' }, '')
+  );
+  tbody.appendChild(tr);
 }
 
 function buildResultRow(r) {
-  const tr = el('tr', { class: r.isStart ? 'row-start' : '' });
-  if (r.isStart) {
+  const tr = el('tr', { class: `row-${r.type}` });
+  if (r.type === 'point') {
+    const vBetaText = r.vBeta === null ? '' : formatSigned(r.vBeta, state.integerMode ? 0 : 1);
     tr.append(
       el('td', { class: 'col-name' }, r.name),
-      el('td', { colspan: 4, class: 'col-meta' }, `起始点 (α=${formatDms(r.az)})`),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
-      el('td', { class: 'col-num' }, '—'),
+      el('td', { class: 'col-dms' }, r.betaRaw === null ? '' : formatDms(r.betaRaw)),
+      el('td', { class: 'col-num vbeta' }, vBetaText),
+      el('td', { class: 'col-dms' }, r.betaAdj === null ? '' : formatDms(r.betaAdj)),
+      el('td', { class: 'col-dms' }, ''),
+      el('td', { class: 'col-num' }, ''),
+      el('td', { class: 'col-num small' }, ''),
+      el('td', { class: 'col-num small' }, ''),
+      el('td', { class: 'col-num small' }, ''),
+      el('td', { class: 'col-num small' }, ''),
+      el('td', { class: 'col-num' }, ''),
+      el('td', { class: 'col-num' }, ''),
       el('td', { class: 'col-num' }, r.x.toFixed(3)),
       el('td', { class: 'col-num' }, r.y.toFixed(3))
     );
   } else {
-    // v_β：整数模式 → 整秒；小数模式 → 1 位小数
-    const vBetaText = formatSigned(r.vBeta, state.integerMode ? 0 : 1);
-    // vx/vy：整数模式 → 3 位小数（mm）；小数模式 → 4 位
     const corrDec = state.integerMode ? 3 : 4;
     tr.append(
-      el('td', { class: 'col-name' }, r.name),
-      el('td', { class: 'col-dms' }, formatDms(r.betaRaw)),
-      el('td', { class: 'col-num vbeta' }, vBetaText),
-      el('td', { class: 'col-dms' }, formatDms(r.betaAdj)),
-      el('td', { class: 'col-dms' }, formatDms(r.az)),
-      el('td', { class: 'col-num' }, r.dist.toFixed(3)),
-      el('td', { class: 'col-num small' }, formatSigned(r.dx, 3)),
-      el('td', { class: 'col-num small' }, formatSigned(r.dy, 3)),
-      el('td', { class: 'col-num small' }, formatSigned(r.vx, corrDec)),
-      el('td', { class: 'col-num small' }, formatSigned(r.vy, corrDec)),
-      el('td', { class: 'col-num' }, formatSigned(r.adjDx, 3)),
-      el('td', { class: 'col-num' }, formatSigned(r.adjDy, 3)),
-      el('td', { class: 'col-num' }, r.x.toFixed(3)),
-      el('td', { class: 'col-num' }, r.y.toFixed(3))
+      el('td', { class: 'col-name' }, ''), // name can optionally be placed here if wanted
+      el('td', { class: 'col-dms' }, ''),
+      el('td', { class: 'col-num vbeta' }, ''),
+      el('td', { class: 'col-dms' }, ''),
+      el('td', { class: 'col-dms' }, r.az === null ? '' : formatDms(r.az)),
+      el('td', { class: 'col-num' }, r.dist === null ? '' : r.dist.toFixed(3)),
+      el('td', { class: 'col-num small' }, r.dx === null ? '' : formatSigned(r.dx, 3)),
+      el('td', { class: 'col-num small' }, r.dy === null ? '' : formatSigned(r.dy, 3)),
+      el('td', { class: 'col-num small' }, r.vx === null ? '' : formatSigned(r.vx, corrDec)),
+      el('td', { class: 'col-num small' }, r.vy === null ? '' : formatSigned(r.vy, corrDec)),
+      el('td', { class: 'col-num' }, r.adjDx === null ? '' : formatSigned(r.adjDx, 3)),
+      el('td', { class: 'col-num' }, r.adjDy === null ? '' : formatSigned(r.adjDy, 3)),
+      el('td', { class: 'col-num' }, ''),
+      el('td', { class: 'col-num' }, '')
     );
   }
   return tr;
@@ -469,7 +615,7 @@ function bindEvents() {
   $('#start-name').addEventListener('input', e => { state.startPoint.name = e.target.value; markDirty(); });
   $('#start-x').addEventListener('input', e => { state.startPoint.x = num(e.target.value); markDirty(); });
   $('#start-y').addEventListener('input', e => { state.startPoint.y = num(e.target.value); markDirty(); });
-  bindDms('#start-az', state.startAzimuth);
+  bindDms('#start-az', () => state.startAzimuth);
   $('#start-az-decimal').addEventListener('input', e => {
     state.startAzDecimal = num(e.target.value);
     markDirty();
@@ -518,7 +664,7 @@ function bindEvents() {
   $('#end-name').addEventListener('input', e => { state.endPoint.name = e.target.value; markDirty(); });
   $('#end-x').addEventListener('input', e => { state.endPoint.x = num(e.target.value); markDirty(); });
   $('#end-y').addEventListener('input', e => { state.endPoint.y = num(e.target.value); markDirty(); });
-  bindDms('#end-az', state.endAzimuth);
+  bindDms('#end-az', () => state.endAzimuth);
   $('#end-az-decimal').addEventListener('input', e => {
     state.endAzDecimal = num(e.target.value);
     markDirty();
@@ -648,14 +794,14 @@ function bindEvents() {
   });
 }
 
-function bindDms(prefix, target) {
+function bindDms(prefix, getTarget) {
   const dEl = $(`${prefix}-d`);
   const mEl = $(`${prefix}-m`);
   const sEl = $(`${prefix}-s`);
   [dEl, mEl, sEl].forEach((e, i) => {
     const key = ['d', 'm', 's'][i];
     e.addEventListener('input', () => {
-      target[key] = num(e.value);
+      getTarget()[key] = num(e.value);
       markDirty();
     });
   });
@@ -731,38 +877,14 @@ function buildTsv() {
   if (!lastResult) return '';
   const headers = ['点名', '观测角', 'v_β', '改正后角值', '方位角', '边长', "X'", "Y'", 'vx', 'vy', 'ΔX', 'ΔY', 'X', 'Y'];
   const lines = [headers.join('\t')];
-  // 起始点行：屏幕上是「起始点 (α=...)」一格跨 5 列（点+角度组 4 列），TSV 无 colspan 展开成 12 个 cell
-  // 角组 4 列空，v_β/改正后/方位角 都为空，az 内嵌在「点名」cell 文本
-  const startAz = formatDms(resolveStartAz());
-  lines.push([
-    `${state.startPoint.name}(起) (α=${startAz})`,
-    '', '', '', '',                       // 观测角 / v_β / 改正后 / 方位角
-    '', '', '', '', '', '', '',           // 边长 / X' / Y' / vx / vy / ΔX / ΔY
-    state.startPoint.x.toFixed(3), state.startPoint.y.toFixed(3)
-  ].join('\t'));
-  // 跟屏幕一致：整数模式 v_β 整秒、vx/vy 3 位（1mm）；小数模式 v_β 1 位、vx/vy 4 位
-  const vBetaDec = state.integerMode ? 0 : 1;
-  const corrDec = state.integerMode ? 3 : 4;
-  lastResult.adjustedAngles.forEach((a, i) => {
-    const inc = lastResult.increments[i];
-    const c = lastResult.coordinates[i + 1];
-    lines.push([
-      a.name,
-      formatDms(a.original),
-      formatSigned(a.vBeta, vBetaDec),
-      formatDms(a.adjusted),
-      formatDms(lastResult.azimuths[i]),
-      inc.distance.toFixed(3),
-      inc.dx.toFixed(3),
-      inc.dy.toFixed(3),
-      formatSigned(inc.vx, corrDec),
-      formatSigned(inc.vy, corrDec),
-      inc.adjustedDx.toFixed(3),
-      inc.adjustedDy.toFixed(3),
-      c.x.toFixed(3),
-      c.y.toFixed(3)
-    ].join('\t'));
+  
+  $$('#result-body tr').forEach(tr => {
+    const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+    if (cells.length === 14) {
+      lines.push(cells.join('\t'));
+    }
   });
+
   const c = lastResult.closure;
   const kText = c.k > 0 ? `1/${Math.round(1 / c.k)}` : '∞';
   const modeNote = state.integerMode ? ' [整数修正模式]' : '';
@@ -791,8 +913,11 @@ async function copyAsTsv() {
 function exportPng() {
   if (!lastResult) { alert('暂无可导出的结果'); return; }
   const W = 1200, rowH = 28, headH = 36, footH = 60;
-  const rows = lastResult.adjustedAngles.length + 2;
+  
+  const trs = Array.from($$('#result-body tr')).filter(tr => tr.querySelectorAll('td').length === 14);
+  const rows = trs.length;
   const H = headH + rows * rowH + footH;
+  
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const ctx = c.getContext('2d');
@@ -801,46 +926,39 @@ function exportPng() {
 
   const cols = ['点', '观测角', 'v_β', '改正后', '方位角', '边长', "X'", "Y'", 'vx', 'vy', 'ΔX', 'ΔY', 'X', 'Y'];
   const colW = (W - 24) / cols.length;
-  const vBetaDec = state.integerMode ? 0 : 1;
-  const corrDec = state.integerMode ? 3 : 4;
+  
   const draw = (txt, x, y, w, align = 'center', bold = false) => {
     ctx.font = `${bold ? 'bold ' : ''}${bold ? 14 : 13}px -apple-system, sans-serif`;
     ctx.textAlign = align; ctx.textBaseline = 'middle';
     ctx.fillText(txt, x + (align === 'center' ? w / 2 : 4), y);
   };
+  
   ctx.fillStyle = '#0f766e'; ctx.fillRect(0, 0, W, headH);
   ctx.fillStyle = '#fff';
   cols.forEach((h, i) => draw(h, 12 + i * colW, headH / 2, colW, 'center', true));
+  
   let y = headH;
-  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, y, W, rowH);
-  ctx.fillStyle = '#0f172a';
-  // 起始点行：屏幕是 起始点(α=...) 跨 col 0-4，PNG 展开成 12 个 cell，az 内嵌在 col 0 文本
-  draw(`${state.startPoint.name}(起) (α=${formatDms(resolveStartAz())})`, 12, y + rowH / 2, 5 * colW, 'center', true);
-  for (let k = 1; k <= 4; k++) draw('', 12 + k * colW, y + rowH / 2, colW);
-  for (let k = 5; k <= 11; k++) draw('—', 12 + k * colW, y + rowH / 2, colW);
-  draw(state.startPoint.x.toFixed(3), 12 + 12 * colW, y + rowH / 2, colW);
-  draw(state.startPoint.y.toFixed(3), 12 + 13 * colW, y + rowH / 2, colW);
-  y += rowH;
-
-  lastResult.adjustedAngles.forEach((a, i) => {
-    const inc = lastResult.increments[i];
-    const coord = lastResult.coordinates[i + 1];
-    if (i % 2 === 0) { ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, y, W, rowH); }
-    ctx.fillStyle = '#0f172a';
-    draw(a.name, 12, y + rowH / 2, colW);
-    draw(formatDms(a.original), 12 + colW, y + rowH / 2, colW);
-    draw(formatSigned(a.vBeta, vBetaDec), 12 + 2 * colW, y + rowH / 2, colW);
-    draw(formatDms(a.adjusted), 12 + 3 * colW, y + rowH / 2, colW);
-    draw(formatDms(lastResult.azimuths[i]), 12 + 4 * colW, y + rowH / 2, colW);
-    draw(inc.distance.toFixed(3), 12 + 5 * colW, y + rowH / 2, colW);
-    draw(inc.dx.toFixed(3), 12 + 6 * colW, y + rowH / 2, colW);
-    draw(inc.dy.toFixed(3), 12 + 7 * colW, y + rowH / 2, colW);
-    draw(formatSigned(inc.vx, corrDec), 12 + 8 * colW, y + rowH / 2, colW);
-    draw(formatSigned(inc.vy, corrDec), 12 + 9 * colW, y + rowH / 2, colW);
-    draw(inc.adjustedDx.toFixed(3), 12 + 10 * colW, y + rowH / 2, colW);
-    draw(inc.adjustedDy.toFixed(3), 12 + 11 * colW, y + rowH / 2, colW);
-    draw(coord.x.toFixed(3), 12 + 12 * colW, y + rowH / 2, colW);
-    draw(coord.y.toFixed(3), 12 + 13 * colW, y + rowH / 2, colW);
+  
+  trs.forEach((tr, i) => {
+    if (tr.classList.contains('row-point')) {
+      ctx.fillStyle = '#ffffff';
+    } else if (tr.classList.contains('row-edge')) {
+      ctx.fillStyle = '#f8fafc';
+    } else if (tr.classList.contains('row-sum')) {
+      ctx.fillStyle = '#fefce8';
+    } else {
+      ctx.fillStyle = i % 2 === 0 ? '#f8fafc' : '#ffffff';
+    }
+    
+    ctx.fillRect(0, y, W, rowH);
+    ctx.fillStyle = tr.classList.contains('row-edge') ? '#64748b' : '#0f172a';
+    if (tr.classList.contains('row-sum')) ctx.fillStyle = '#854d0e';
+    
+    const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+    cells.forEach((txt, j) => {
+      draw(txt, 12 + j * colW, y + rowH / 2, colW, 'center', tr.classList.contains('row-sum'));
+    });
+    
     y += rowH;
   });
 
