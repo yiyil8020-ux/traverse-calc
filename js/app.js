@@ -734,7 +734,10 @@ function bindEvents() {
 
   $('#btn-add-row').addEventListener('click', () => {
     const last = state.stations[state.stations.length - 1];
-    const next = String.fromCharCode('A'.charCodeAt(0) + state.stations.length);
+    const idx = state.stations.length;
+    const letter = String.fromCharCode('A'.charCodeAt(0) + (idx % 26));
+    const suffix = idx >= 26 ? String(Math.floor(idx / 26)) : '';
+    const next = letter + suffix;
     state.stations.push({ name: next, deg: 0, min: 0, sec: 0, distance: last ? last.distance : 100 });
     render();
   });

@@ -85,6 +85,7 @@ export function getProject(id) {
   const p = list.find(p => p.id === id);
   if (!p) return null;
   if (p.version && p.version !== STATE_VERSION) return null;
+  if (p.state) p.state = migrateState(p.state);
   return p;
 }
 
@@ -105,6 +106,7 @@ export function loadDraft() {
   const d = readJSON(KEY_DRAFT, null);
   if (!d) return null;
   if (d.version && d.version !== STATE_VERSION) return null;
+  if (d.state) d.state = migrateState(d.state);
   return d;
 }
 
