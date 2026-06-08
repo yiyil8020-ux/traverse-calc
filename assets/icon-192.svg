@@ -1,4 +1,97 @@
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'>
-  <rect width='192' height='192' rx='36' fill='#0f766e'/>
-  <text x='96' y='128' text-anchor='middle' fill='white' font-size='110' font-family='sans-serif' font-weight='bold'>导</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="60%" stop-color="#0f766e" />
+      <stop offset="100%" stop-color="#115e59" />
+    </linearGradient>
+    <!-- Cyan Glow Gradient -->
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <!-- Orange Accent Gradient -->
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+    <!-- Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Card -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Coordinate Grid -->
+  <g stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.12">
+    <!-- Vertical Grid Lines -->
+    <line x1="102.4" y1="0" x2="102.4" y2="512" />
+    <line x1="204.8" y1="0" x2="204.8" y2="512" />
+    <line x1="307.2" y1="0" x2="307.2" y2="512" />
+    <line x1="409.6" y1="0" x2="409.6" y2="512" />
+    <!-- Horizontal Grid Lines -->
+    <line x1="0" y1="102.4" x2="512" y2="102.4" />
+    <line x1="0" y1="204.8" x2="512" y2="204.8" />
+    <line x1="0" y1="307.2" x2="512" y2="307.2" />
+    <line x1="0" y1="409.6" x2="512" y2="409.6" />
+  </g>
+
+  <!-- Traverse Lines (Network) -->
+  <!-- Unadjusted loop (orange dashed, showing closure gap) -->
+  <polyline points="120,400 150,180 370,120 420,330 135,410" 
+            fill="none" stroke="url(#orangeGrad)" stroke-width="4" stroke-dasharray="8,6" opacity="0.75" />
+  
+  <!-- Adjusted loop (cyan solid, perfectly closed) -->
+  <polygon points="120,400 150,180 370,120 410,320" 
+           fill="none" stroke="url(#cyanGrad)" stroke-width="6" stroke-linejoin="round" filter="url(#glow)" />
+
+  <!-- Traverse Vertices (Dots) -->
+  <!-- Station A -->
+  <circle cx="120" cy="400" r="10" fill="#ffffff" stroke="#2dd4bf" stroke-width="3" />
+  <!-- Station B -->
+  <circle cx="150" cy="180" r="10" fill="#ffffff" stroke="#2dd4bf" stroke-width="3" />
+  <!-- Station C -->
+  <circle cx="370" cy="120" r="10" fill="#ffffff" stroke="#2dd4bf" stroke-width="3" />
+  <!-- Station D (Adjusted) -->
+  <circle cx="410" cy="320" r="10" fill="#ffffff" stroke="#2dd4bf" stroke-width="3" />
+  <!-- Station D' (Unadjusted open endpoint) -->
+  <circle cx="135" cy="410" r="6" fill="#fb923c" />
+  <!-- Closure gap indicator line -->
+  <line x1="120" y1="400" x2="135" y2="410" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="3,3" />
+
+  <!-- Central Surveying Instrument (Total Station) -->
+  <g transform="translate(240, 200)">
+    <!-- Tripod Legs -->
+    <line x1="16" y1="90" x2="-25" y2="200" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.9" />
+    <line x1="16" y1="90" x2="57" y2="200" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.9" />
+    <line x1="16" y1="90" x2="16" y2="210" stroke="#ffffff" stroke-width="10" stroke-linecap="round" opacity="0.7" />
+
+    <!-- Tripod head plate -->
+    <line x1="-10" y1="90" x2="42" y2="90" stroke="#ffffff" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Instrument Tribrach (base) -->
+    <rect x="-6" y="65" width="44" height="16" rx="4" fill="#38bdf8" />
+    
+    <!-- Standards (Vertical vertical standards) -->
+    <path d="M-6,65 L-6,0 C-6,-5 -1,-8 4,-8 L4,65 Z" fill="#0ea5e9" />
+    <path d="M38,65 L38,0 C38,-5 33,-8 28,-8 L28,65 Z" fill="#0ea5e9" />
+    
+    <!-- Telescope -->
+    <g transform="rotate(-15, 16, 25)">
+      <!-- Main body -->
+      <rect x="-18" y="13" width="68" height="24" rx="6" fill="#ffffff" stroke="#0f766e" stroke-width="3" />
+      <!-- Objective Lens (front) -->
+      <rect x="42" y="10" width="12" height="30" rx="3" fill="#2dd4bf" />
+      <!-- Eyepiece (back) -->
+      <rect x="-24" y="16" width="8" height="18" rx="2" fill="#475569" />
+    </g>
+
+    <!-- Center vertical axis hub -->
+    <circle cx="16" cy="25" r="12" fill="#fb923c" stroke="#ffffff" stroke-width="2.5" />
+    <circle cx="16" cy="25" r="5" fill="#ffffff" />
+  </g>
 </svg>
