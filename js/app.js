@@ -104,6 +104,8 @@ function recompute() {
     if (lastResult) {
       lastResult.convertedModel = convertedModel;
       lastResult.originalStations = state.stations; // 保留原始用户输入供渲染表格用
+      lastResult.sourceMode = state.mode;           // 记录来源模式
+      lastResult.stationCount = state.stations.length;
       if (convertedModel) {
         lastResult.originalStartAz = resolveStartAz();
       }
@@ -136,6 +138,7 @@ function runCompute() {
 // 计算按钮的视觉状态
 let currentPage = 'calc';  // 'calc' | 'plotter'
 let plotter = null;         // Plotter 实例
+let importedResultId = null;  // 已导入的平差结果标识，避免重复覆盖
 
 function updateComputeButton() {
   const btn = $('#btn-compute');
@@ -171,12 +174,58 @@ function initPlotter() {
   if (!plotter) {
     plotter = new Plotter(canvas);
   }
-  // 从平差结果导入控制点
-  if (lastResult && lastResult.coordinates) {
-    plotter.setControlPoints(lastResult.coordinates);
+  // 只在首次进入（尚无控制点）时自动导入
+  if (plotter.controlPoints.length === 0 && lastResult && lastResult.coordinates) {
+    importControlPoints();
   }
+  renderControlSource();
   renderPointList();
   plotter.render();
+}
+
+/** 从当前 lastResult 导入控制点到绘图器 */
+function importControlPoints() {
+  if (!plotter || !lastResult || !lastResult.coordinates) return;
+  plotter.setControlPoints(lastResult.coordinates);
+  // 记录导入来源
+  importedResultId = {
+    mode: lastResult.sourceMode || state.mode,
+    stationCount: lastResult.stationCount || lastResult.coordinates.length,
+    time: Date.now()
+  };
+  renderControlSource();
+  renderPointList();
+}
+
+/** 渲染控制点来源信息 */
+function renderControlSource() {
+  const el = $('#control-source');
+  if (!el) return;
+
+  if (!plotter || plotter.controlPoints.length === 0) {
+    el.innerHTML = '<span class="hint">尚未导入控制点 — 请先在闭合/附合导线页面完成计算</span>';
+    return;
+  }
+
+  const modeText = importedResultId?.mode === 'attached' ? '附合导线' : '闭合导线';
+  const count = plotter.controlPoints.length;
+  const hasNewer = lastResult && lastResult.coordinates &&
+    importedResultId && lastResult.sourceMode !== importedResultId.mode;
+
+  let html = `<span class="source-badge">${modeText}</span> `;
+  html += `<span class="hint">${count} 个控制点`;
+  if (importedResultId?.time) {
+    const t = new Date(importedResultId.time);
+    html += ` · 导入于 ${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`;
+  }
+  html += '</span>';
+
+  if (hasNewer) {
+    const newerMode = lastResult.sourceMode === 'attached' ? '附合导线' : '闭合导线';
+    html += ` <span class="hint" style="color:var(--warn)">⚠️ ${newerMode}有新的计算结果</span>`;
+  }
+
+  el.innerHTML = html;
 }
 
 function renderPointList() {
@@ -1276,6 +1325,19 @@ function bindPlotterEvents() {
   // 在 plotter 的 canvas 点击后更新 UI（连线可能改变了按钮状态）
   $('#plotter-canvas')?.addEventListener('click', () => {
     setTimeout(updateDrawingUI, 50);
+  });
+
+  // 重新导入控制点
+  $('#btn-reimport')?.addEventListener('click', () => {
+    if (!lastResult || !lastResult.coordinates) {
+      alert('暂无平差计算结果，请先在闭合/附合导线页面完成计算');
+      return;
+    }
+    const modeText = lastResult.sourceMode === 'attached' ? '附合导线' : '闭合导线';
+    const count = lastResult.coordinates.length;
+    if (confirm(`将从「${modeText}」的最新计算结果中导入 ${count} 个控制点，当前的控制点将被替换。\n\n细部点和连线不受影响。继续？`)) {
+      importControlPoints();
+    }
   });
 }
 

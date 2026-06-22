@@ -386,6 +386,12 @@
       <!-- 已添加的点列表 -->
       <section class="card">
         <h2 class="card-title">已有点位 <span id="point-count" class="hint"></span></h2>
+        <div class="control-source-bar">
+          <div id="control-source" class="control-source-info">
+            <span class="hint">尚未导入控制点 — 请先在闭合/附合导线页面完成计算</span>
+          </div>
+          <button id="btn-reimport" class="link-btn" style="font-size:12px; padding:4px 10px; min-height:28px;">🔄 重新导入</button>
+        </div>
         <div id="point-list" class="detail-point-list">
           <div class="empty-hint">暂无点位，请先计算导线或手动添加</div>
         </div>

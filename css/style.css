@@ -633,6 +633,34 @@ body {
 }
 .batch-body textarea:focus { border-color: var(--primary); background: #fff; }
 
+/* 控制点来源信息 */
+.control-source-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+.control-source-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.source-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #0f766e;
+  color: #fff;
+}
+
 /* 点列表 */
 .detail-point-list {
   max-height: 300px;
