@@ -28,16 +28,19 @@ export function drawTraverse(canvas, coordinates, opts = {}) {
     if (p.y < minY) minY = p.y;
     if (p.y > maxY) maxY = p.y;
   }
-  const rangeX = Math.max(maxX - minX, 1e-6);
-  const rangeY = Math.max(maxY - minY, 1e-6);
-  // 等比例缩放
-  const scale = Math.min((W - 2 * padding) / rangeX, (H - 2 * padding) / rangeY);
-  const offX = (W - rangeX * scale) / 2 - minX * scale;
-  const offY = (H - rangeY * scale) / 2 - minY * scale;
+  // 测量坐标系下：X是纵轴（North，垂直向上），Y是横轴（East，水平向右）
+  // 对应屏幕/画布：Y 映射到横向 cx，X 映射到纵向 cy
+  const rangeX = Math.max(maxX - minX, 1e-6); // Northing 范围（纵向）
+  const rangeY = Math.max(maxY - minY, 1e-6); // Easting 范围（横向）
+
+  // 等比例缩放：Easting 对应画布宽度 W，Northing 对应画布高度 H
+  const scale = Math.min((W - 2 * padding) / rangeY, (H - 2 * padding) / rangeX);
+  const offX = (W - rangeY * scale) / 2 - minY * scale;
+  const offY = (H - rangeX * scale) / 2 - minX * scale;
 
   const toCanvas = (p) => ({
-    cx: p.x * scale + offX,
-    cy: H - (p.y * scale + offY)         // Y 翻转（屏幕 Y 向下）
+    cx: p.y * scale + offX,              // 测绘 Y（东）对应画布横向
+    cy: H - (p.x * scale + offY)         // 测绘 X（北）对应画布纵向（需翻转以使得大值在上方）
   });
 
   // 背景
@@ -47,14 +50,16 @@ export function drawTraverse(canvas, coordinates, opts = {}) {
   // 网格（细）
   ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 1;
-  const gridStep = chooseGridStep(rangeX * scale, W);
-  for (let gx = Math.floor(minX / gridStep) * gridStep; gx <= maxX; gx += gridStep) {
-    const c = toCanvas({ x: gx, y: 0 });
-    ctx.beginPath(); ctx.moveTo(c.cx, 0); ctx.lineTo(c.cx, H); ctx.stroke();
-  }
+  const gridStep = chooseGridStep(rangeY * scale, W);
+  // 垂直网格线（对应常数 Y，即 surveying Y = gy）
   for (let gy = Math.floor(minY / gridStep) * gridStep; gy <= maxY; gy += gridStep) {
-    const c = toCanvas({ x: 0, y: gy });
-    ctx.beginPath(); ctx.moveTo(0, c.cy); ctx.lineTo(W, c.cy); ctx.stroke();
+    const cx = gy * scale + offX;
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke();
+  }
+  // 水平网格线（对应常数 X，即 surveying X = gx）
+  for (let gx = Math.floor(minX / gridStep) * gridStep; gx <= maxX; gx += gridStep) {
+    const cy = H - (gx * scale + offY);
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
   }
 
   // 导线边
