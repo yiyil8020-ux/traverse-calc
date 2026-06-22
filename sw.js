@@ -1,5 +1,5 @@
 // Service Worker - 离线缓存
-const CACHE = 'traverse-calc-v21';
+const CACHE = 'traverse-calc-v22';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
   './js/traverse.js',
   './js/storage.js',
   './js/sketch.js',
+  './js/plotter.js',
   './js/version.js',
   './js/app.js'
 ];

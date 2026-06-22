@@ -30,10 +30,13 @@
     <div class="mode-switch" role="tablist">
       <button id="mode-closed"   class="mode-btn active" data-mode="closed">闭合导线</button>
       <button id="mode-attached" class="mode-btn"        data-mode="attached">附合导线</button>
+      <button id="mode-plotter"  class="mode-btn"        data-mode="plotter">📐 细部绘图</button>
     </div>
   </div>
 
   <main class="container">
+    <!-- ========= 平差计算页面 ========= -->
+    <div id="page-calc" data-page="calc">
     <!-- 起算数据 -->
     <section class="card">
       <h2 class="card-title">起算数据</h2>
@@ -302,6 +305,96 @@
     <footer class="footer">
       坐标约定：<b>X = 北（纵），Y = 东（横）</b>，方位角从北起顺时针
     </footer>
+    </div><!-- /page-calc -->
+
+    <!-- ========= 细部绘图页面 ========= -->
+    <div id="page-plotter" data-page="plotter" hidden>
+
+      <!-- 工具栏 -->
+      <section class="card plotter-toolbar-card">
+        <div class="plotter-toolbar">
+          <div class="toolbar-group">
+            <button id="plotter-bg-grid" class="tool-btn active" title="方格纸">📏 方格纸</button>
+            <button id="plotter-bg-plain" class="tool-btn" title="白纸">📄 白纸</button>
+          </div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-group">
+            <button id="plotter-draw" class="tool-btn" title="连线模式">✏️ 连线</button>
+            <button id="plotter-close-poly" class="tool-btn" title="闭合轮廓" disabled>🔗 闭合</button>
+            <button id="plotter-finish-poly" class="tool-btn" title="结束连线" disabled>✅ 结束</button>
+            <button id="plotter-undo-seg" class="tool-btn" title="撤销一段" disabled>↩️ 撤销</button>
+          </div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-group">
+            <button id="plotter-undo-poly" class="tool-btn" title="删除最后一条轮廓线">🗑️ 删线</button>
+            <button id="plotter-fit" class="tool-btn" title="自适应视图">🔍 适配</button>
+          </div>
+        </div>
+        <div class="plotter-toolbar" style="margin-top:6px">
+          <div class="toolbar-group">
+            <button id="plotter-export-png" class="tool-btn">📷 导出 PNG</button>
+            <button id="plotter-export-dxf" class="tool-btn">📐 导出 DXF</button>
+          </div>
+          <div class="toolbar-sep"></div>
+          <div class="toolbar-group">
+            <label class="tool-label">比例尺 1:</label>
+            <input type="number" id="plotter-scale" class="tool-input" placeholder="自动" min="1" step="1">
+            <button id="plotter-scale-apply" class="tool-btn-sm">应用</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 画布 -->
+      <section class="card plotter-canvas-card">
+        <div class="plotter-canvas-wrap">
+          <canvas id="plotter-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- 添加细部点 -->
+      <section class="card">
+        <h2 class="card-title">添加细部点</h2>
+        <div class="point-input-panel">
+          <div class="point-input-row">
+            <label class="form-field">
+              <span>点名</span>
+              <input type="text" id="detail-name" maxlength="10" autocomplete="off" placeholder="如 P1">
+            </label>
+            <label class="form-field">
+              <span>X (北)</span>
+              <input type="number" id="detail-x" step="0.001" inputmode="decimal" placeholder="0.000">
+            </label>
+            <label class="form-field">
+              <span>Y (东)</span>
+              <input type="number" id="detail-y" step="0.001" inputmode="decimal" placeholder="0.000">
+            </label>
+            <button id="btn-add-detail" class="btn-add-point">+ 添加</button>
+          </div>
+        </div>
+
+        <!-- 批量导入 -->
+        <details class="batch-import">
+          <summary>📋 批量导入（从全站仪/Excel 粘贴）</summary>
+          <div class="batch-body">
+            <p class="hint">每行一个点，格式：<code>点名, X, Y</code> 或 <code>点名 X Y</code>（支持逗号、空格、Tab 分隔）</p>
+            <textarea id="batch-input" rows="5" placeholder="P1, 100.123, 200.456&#10;P2, 101.234, 201.567&#10;P3, 102.345, 202.678"></textarea>
+            <button id="btn-batch-import" class="link-btn">导入</button>
+          </div>
+        </details>
+      </section>
+
+      <!-- 已添加的点列表 -->
+      <section class="card">
+        <h2 class="card-title">已有点位 <span id="point-count" class="hint"></span></h2>
+        <div id="point-list" class="detail-point-list">
+          <div class="empty-hint">暂无点位，请先计算导线或手动添加</div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        坐标约定：<b>X = 北（纵），Y = 东（横）</b>，方位角从北起顺时针
+      </footer>
+    </div><!-- /page-plotter -->
   </main>
 
   <!-- 底部 sticky 计算按钮：始终可见；改输入后变橙色脉动 -->

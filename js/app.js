@@ -9,6 +9,7 @@ import {
   saveDraft, loadDraft, migrateState
 } from './storage.js';
 import { drawTraverse } from './sketch.js';
+import { Plotter } from './plotter.js';
 import { STATE_VERSION } from './version.js';
 
 // ─────────────────────────────────────────────
@@ -133,15 +134,126 @@ function runCompute() {
 }
 
 // 计算按钮的视觉状态
+let currentPage = 'calc';  // 'calc' | 'plotter'
+let plotter = null;         // Plotter 实例
+
 function updateComputeButton() {
   const btn = $('#btn-compute');
+  const bar = btn?.closest('.compute-bar');
   if (!btn) return;
+  // 绘图模式下隐藏计算按钮
+  if (bar) bar.hidden = currentPage === 'plotter';
   if (stateDirty) {
     btn.classList.add('dirty');
     btn.innerHTML = '<span class="dot"></span>已修改 · 点此重算';
   } else {
     btn.classList.remove('dirty');
     btn.textContent = '🚀 计算';
+  }
+}
+
+function switchPage(page) {
+  currentPage = page;
+  const pageCalc = $('#page-calc');
+  const pagePlotter = $('#page-plotter');
+  if (pageCalc) pageCalc.hidden = page !== 'calc';
+  if (pagePlotter) pagePlotter.hidden = page !== 'plotter';
+
+  if (page === 'plotter') {
+    initPlotter();
+  }
+  updateComputeButton();
+}
+
+function initPlotter() {
+  const canvas = $('#plotter-canvas');
+  if (!canvas) return;
+  if (!plotter) {
+    plotter = new Plotter(canvas);
+  }
+  // 从平差结果导入控制点
+  if (lastResult && lastResult.coordinates) {
+    plotter.setControlPoints(lastResult.coordinates);
+  }
+  renderPointList();
+  plotter.render();
+}
+
+function renderPointList() {
+  const list = $('#point-list');
+  const countEl = $('#point-count');
+  if (!list || !plotter) return;
+
+  const controls = plotter.controlPoints;
+  const details = plotter.detailPoints;
+  const total = controls.length + details.length;
+
+  if (countEl) countEl.textContent = total > 0 ? `(${total} 个)` : '';
+
+  if (total === 0) {
+    list.innerHTML = '<div class="empty-hint">暂无点位，请先计算导线或手动添加</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+
+  // 控制点
+  for (const p of controls) {
+    const item = el('div', { class: 'point-item' },
+      el('div', { class: 'point-info' },
+        el('span', { class: 'point-name control' }, p.name),
+        el('span', { class: 'point-coord' }, `X=${p.x.toFixed(3)}, Y=${p.y.toFixed(3)}`),
+        el('span', { class: 'point-type control' }, '控制点')
+      )
+    );
+    list.appendChild(item);
+  }
+
+  // 细部点
+  for (const p of details) {
+    const delBtn = el('button', { class: 'btn-del-point', onclick: () => {
+      plotter.removeDetailPoint(p.name);
+      renderPointList();
+    }}, '✕');
+    const item = el('div', { class: 'point-item' },
+      el('div', { class: 'point-info' },
+        el('span', { class: 'point-name detail' }, p.name),
+        el('span', { class: 'point-coord' }, `X=${p.x.toFixed(3)}, Y=${p.y.toFixed(3)}`),
+        el('span', { class: 'point-type detail' }, '细部点')
+      ),
+      delBtn
+    );
+    list.appendChild(item);
+  }
+}
+
+function updateDrawingUI() {
+  if (!plotter) return;
+  const isDrawing = plotter.drawingMode;
+  const canvas = $('#plotter-canvas');
+  const drawBtn = $('#plotter-draw');
+  const closeBtn = $('#plotter-close-poly');
+  const finishBtn = $('#plotter-finish-poly');
+  const undoSegBtn = $('#plotter-undo-seg');
+
+  if (canvas) canvas.classList.toggle('drawing-mode', isDrawing);
+  if (drawBtn) drawBtn.classList.toggle('active', isDrawing);
+  if (closeBtn) closeBtn.disabled = !isDrawing || !plotter.currentPoly || plotter.currentPoly.length < 3;
+  if (finishBtn) finishBtn.disabled = !isDrawing || !plotter.currentPoly || plotter.currentPoly.length < 2;
+  if (undoSegBtn) undoSegBtn.disabled = !isDrawing || !plotter.currentPoly || plotter.currentPoly.length === 0;
+
+  // 连线模式指示器
+  const wrap = document.querySelector('.plotter-canvas-wrap');
+  let indicator = wrap?.querySelector('.drawing-indicator');
+  if (isDrawing) {
+    if (!indicator && wrap) {
+      indicator = document.createElement('div');
+      indicator.className = 'drawing-indicator';
+      indicator.textContent = '✏️ 连线模式 — 点击画布上的点来连线';
+      wrap.appendChild(indicator);
+    }
+  } else {
+    if (indicator) indicator.remove();
   }
 }
 
@@ -195,8 +307,10 @@ function sideLabel(i) {
 // 输入区：从 state 渲染到 DOM
 // ─────────────────────────────────────────────
 function renderInputs() {
-  $('#mode-closed').classList.toggle('active', state.mode === 'closed');
-  $('#mode-attached').classList.toggle('active', state.mode === 'attached');
+  const isPlotter = currentPage === 'plotter';
+  $('#mode-closed').classList.toggle('active', state.mode === 'closed' && !isPlotter);
+  $('#mode-attached').classList.toggle('active', state.mode === 'attached' && !isPlotter);
+  $('#mode-plotter').classList.toggle('active', isPlotter);
   $('#attached-end').hidden = state.mode !== 'attached';
 
   $('#start-name').value = state.startPoint.name;
@@ -597,8 +711,9 @@ function renderDerived() {
 // ─────────────────────────────────────────────
 function bindEvents() {
   // 模式
-  $('#mode-closed').addEventListener('click', () => { state.mode = 'closed'; render(); });
-  $('#mode-attached').addEventListener('click', () => { state.mode = 'attached'; render(); });
+  $('#mode-closed').addEventListener('click', () => { state.mode = 'closed'; switchPage('calc'); render(); });
+  $('#mode-attached').addEventListener('click', () => { state.mode = 'attached'; switchPage('calc'); render(); });
+  $('#mode-plotter').addEventListener('click', () => { switchPage('plotter'); render(); });
 
   // 起算
   $('#start-name').addEventListener('input', e => { state.startPoint.name = e.target.value; markDirty(); });
@@ -793,6 +908,9 @@ function bindEvents() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeModals();
   });
+
+  // ── 细部绘图 事件绑定 ──────────────────
+  bindPlotterEvents();
 }
 
 function bindDms(prefix, getTarget) {
@@ -1037,6 +1155,128 @@ function importJson() {
     r.readAsText(f);
   };
   inp.click();
+}
+
+// ─────────────────────────────────────────────
+// 细部绘图事件
+// ─────────────────────────────────────────────
+function bindPlotterEvents() {
+  // 背景切换
+  $('#plotter-bg-grid')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.setBackground('grid');
+    $('#plotter-bg-grid').classList.add('active');
+    $('#plotter-bg-plain').classList.remove('active');
+  });
+  $('#plotter-bg-plain')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.setBackground('plain');
+    $('#plotter-bg-plain').classList.add('active');
+    $('#plotter-bg-grid').classList.remove('active');
+  });
+
+  // 连线模式
+  $('#plotter-draw')?.addEventListener('click', () => {
+    if (!plotter) return;
+    if (plotter.drawingMode) {
+      plotter.finishPolyline();
+    } else {
+      plotter.startPolyline();
+    }
+    updateDrawingUI();
+  });
+
+  // 闭合
+  $('#plotter-close-poly')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.closePolyline();
+    updateDrawingUI();
+  });
+
+  // 结束连线（不闭合）
+  $('#plotter-finish-poly')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.finishPolyline();
+    updateDrawingUI();
+  });
+
+  // 撤销一段
+  $('#plotter-undo-seg')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.undoLastSegment();
+    updateDrawingUI();
+  });
+
+  // 删除最后一条轮廓线
+  $('#plotter-undo-poly')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.undoLastPolyline();
+  });
+
+  // 自适应视图
+  $('#plotter-fit')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.fitView();
+  });
+
+  // 导出 PNG
+  $('#plotter-export-png')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.downloadPNG();
+  });
+
+  // 导出 DXF
+  $('#plotter-export-dxf')?.addEventListener('click', () => {
+    if (!plotter) return;
+    plotter.downloadDXF();
+  });
+
+  // 比例尺
+  $('#plotter-scale-apply')?.addEventListener('click', () => {
+    if (!plotter) return;
+    const val = $('#plotter-scale').value;
+    plotter.setUserScale(val ? +val : null);
+  });
+
+  // 添加细部点
+  $('#btn-add-detail')?.addEventListener('click', () => {
+    if (!plotter) return;
+    const name = $('#detail-name').value.trim();
+    const x = +$('#detail-x').value;
+    const y = +$('#detail-y').value;
+    if (!name) { alert('请输入点名'); return; }
+    if (isNaN(x) || isNaN(y)) { alert('请输入有效坐标'); return; }
+    if (!plotter.addDetailPoint(name, x, y)) {
+      alert(`点名 "${name}" 已存在`);
+      return;
+    }
+    // 清空输入
+    $('#detail-name').value = '';
+    $('#detail-x').value = '';
+    $('#detail-y').value = '';
+    $('#detail-name').focus();
+    renderPointList();
+  });
+
+  // 批量导入
+  $('#btn-batch-import')?.addEventListener('click', () => {
+    if (!plotter) return;
+    const text = $('#batch-input').value;
+    if (!text.trim()) { alert('请粘贴坐标数据'); return; }
+    const added = plotter.addDetailPointsBatch(text);
+    if (added > 0) {
+      alert(`成功导入 ${added} 个点`);
+      $('#batch-input').value = '';
+      renderPointList();
+    } else {
+      alert('未能识别有效数据，请检查格式');
+    }
+  });
+
+  // 在 plotter 的 canvas 点击后更新 UI（连线可能改变了按钮状态）
+  $('#plotter-canvas')?.addEventListener('click', () => {
+    setTimeout(updateDrawingUI, 50);
+  });
 }
 
 // ─────────────────────────────────────────────

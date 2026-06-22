@@ -486,4 +486,225 @@ body {
   50%      { opacity: 0.3; }
 }
 
+/* ── 细部绘图页面 ─────────────────────── */
+
+/* 工具栏 */
+.plotter-toolbar-card { padding: 10px; }
+.plotter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.toolbar-sep {
+  width: 1px; height: 24px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.tool-btn {
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font: inherit; font-size: 12px; font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .12s;
+  min-height: 34px;
+  color: var(--text);
+}
+.tool-btn:hover { background: #e2e8f0; }
+.tool-btn:active { transform: scale(.97); }
+.tool-btn.active {
+  background: var(--primary); color: #fff;
+  border-color: var(--primary);
+}
+.tool-btn:disabled {
+  opacity: 0.4; cursor: not-allowed;
+}
+.tool-btn-sm {
+  padding: 4px 10px;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 5px;
+  font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  min-height: 30px;
+  transition: opacity .12s;
+}
+.tool-btn-sm:hover { opacity: .85; }
+.tool-label {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tool-input {
+  width: 70px;
+  padding: 4px 8px;
+  font: inherit; font-size: 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  outline: none;
+  text-align: center;
+  min-height: 30px;
+}
+.tool-input:focus { border-color: var(--primary); background: #fff; }
+
+/* 画布 */
+.plotter-canvas-card { padding: 0; overflow: hidden; }
+.plotter-canvas-wrap {
+  background: #fff;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  position: relative;
+}
+#plotter-canvas {
+  display: block;
+  width: 100%;
+  height: 480px;
+  touch-action: none;
+  cursor: grab;
+}
+#plotter-canvas.drawing-mode {
+  cursor: crosshair;
+}
+
+/* 添加点 */
+.point-input-panel { display: flex; flex-direction: column; gap: 8px; }
+.point-input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+@media (max-width: 480px) {
+  .point-input-row { grid-template-columns: 1fr 1fr; }
+}
+.btn-add-point {
+  padding: 10px 16px;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: var(--radius-sm);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  min-height: 42px;
+  transition: opacity .12s;
+  white-space: nowrap;
+}
+.btn-add-point:hover { opacity: .85; }
+.btn-add-point:active { transform: scale(.98); }
+
+/* 批量导入 */
+.batch-import {
+  margin-top: 10px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0;
+}
+.batch-import summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  color: var(--primary);
+  list-style: none;
+}
+.batch-import summary::-webkit-details-marker { display: none; }
+.batch-import[open] summary { border-bottom: 1px solid var(--border); }
+.batch-body {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.batch-body textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit; font-size: 13px;
+  font-family: var(--mono);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  resize: vertical;
+  outline: none;
+}
+.batch-body textarea:focus { border-color: var(--primary); background: #fff; }
+
+/* 点列表 */
+.detail-point-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.point-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.point-item:last-child { border-bottom: none; }
+.point-item .point-info {
+  display: flex; align-items: baseline; gap: 8px;
+}
+.point-item .point-name {
+  font-weight: 600; font-size: 14px;
+  min-width: 40px;
+}
+.point-item .point-name.control { color: #dc2626; }
+.point-item .point-name.detail { color: #2563eb; }
+.point-item .point-coord {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.point-item .point-type {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.point-item .point-type.control {
+  background: #fef2f2; color: #dc2626;
+}
+.point-item .point-type.detail {
+  background: #eff6ff; color: #2563eb;
+}
+.point-item .btn-del-point {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  color: var(--danger);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .12s;
+}
+.point-item .btn-del-point:hover {
+  background: #fef2f2;
+}
+.empty-hint {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+  font-size: 13px;
+}
+
+/* 连线模式指示 */
+.drawing-indicator {
+  position: absolute;
+  top: 8px; left: 8px;
+  padding: 4px 10px;
+  background: rgba(245, 158, 11, 0.9);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px; font-weight: 600;
+  pointer-events: none;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 [hidden] { display: none !important; }
