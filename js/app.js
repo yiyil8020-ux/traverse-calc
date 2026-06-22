@@ -174,9 +174,39 @@ function initPlotter() {
   if (!plotter) {
     plotter = new Plotter(canvas);
   }
-  // 只在首次进入（尚无控制点）时自动导入
-  if (plotter.controlPoints.length === 0 && lastResult && lastResult.coordinates) {
-    importControlPoints();
+  // 如果当前有计算坐标，进行智能比对与同步
+  if (lastResult && lastResult.coordinates) {
+    let needUpdate = false;
+    const currentCoords = plotter.controlPoints;
+    const newCoords = lastResult.coordinates;
+    
+    // 过滤掉闭合导线首尾重复点来进行长度对比
+    const seen = new Set();
+    const uniqueNewCoords = newCoords.filter(p => {
+      const key = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    
+    if (currentCoords.length === 0) {
+      needUpdate = true;
+    } else if (currentCoords.length !== uniqueNewCoords.length) {
+      needUpdate = true;
+    } else {
+      for (let i = 0; i < uniqueNewCoords.length; i++) {
+        const cc = currentCoords[i];
+        const nc = uniqueNewCoords[i];
+        if (!cc || cc.name !== nc.name || Math.abs(cc.x - nc.x) > 1e-4 || Math.abs(cc.y - nc.y) > 1e-4) {
+          needUpdate = true;
+          break;
+        }
+      }
+    }
+    
+    if (needUpdate) {
+      importControlPoints();
+    }
   }
   renderControlSource();
   renderPointList();
@@ -359,7 +389,6 @@ function renderInputs() {
   const isPlotter = currentPage === 'plotter';
   $('#mode-closed').classList.toggle('active', state.mode === 'closed' && !isPlotter);
   $('#mode-attached').classList.toggle('active', state.mode === 'attached' && !isPlotter);
-  $('#mode-plotter').classList.toggle('active', isPlotter);
   $('#attached-end').hidden = state.mode !== 'attached';
 
   $('#start-name').value = state.startPoint.name;
@@ -762,7 +791,10 @@ function bindEvents() {
   // 模式
   $('#mode-closed').addEventListener('click', () => { state.mode = 'closed'; switchPage('calc'); render(); });
   $('#mode-attached').addEventListener('click', () => { state.mode = 'attached'; switchPage('calc'); render(); });
-  $('#mode-plotter').addEventListener('click', () => { switchPage('plotter'); render(); });
+
+  // 细部绘图页面进入和退出
+  $('#btn-open-plotter')?.addEventListener('click', () => { switchPage('plotter'); render(); });
+  $('#btn-back-calc')?.addEventListener('click', () => { switchPage('calc'); render(); });
 
   // 起算
   $('#start-name').addEventListener('input', e => { state.startPoint.name = e.target.value; markDirty(); });

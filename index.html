@@ -30,7 +30,6 @@
     <div class="mode-switch" role="tablist">
       <button id="mode-closed"   class="mode-btn active" data-mode="closed">闭合导线</button>
       <button id="mode-attached" class="mode-btn"        data-mode="attached">附合导线</button>
-      <button id="mode-plotter"  class="mode-btn"        data-mode="plotter">📐 细部绘图</button>
     </div>
   </div>
 
@@ -296,7 +295,10 @@
 
     <!-- 略图 -->
     <section class="card">
-      <h2 class="card-title">略图</h2>
+      <div class="card-title-row">
+        <h2 class="card-title">略图</h2>
+        <button id="btn-open-plotter" class="btn-sketch-plotter" title="进入细部测量绘图">📐 细部绘图 →</button>
+      </div>
       <div class="sketch-wrap">
         <canvas id="sketch"></canvas>
       </div>
@@ -310,44 +312,53 @@
     <!-- ========= 细部绘图页面 ========= -->
     <div id="page-plotter" data-page="plotter" hidden>
 
-      <!-- 工具栏 -->
-      <section class="card plotter-toolbar-card">
-        <div class="plotter-toolbar">
-          <div class="toolbar-group">
-            <button id="plotter-bg-grid" class="tool-btn active" title="方格纸">📏 方格纸</button>
-            <button id="plotter-bg-plain" class="tool-btn" title="白纸">📄 白纸</button>
-          </div>
-          <div class="toolbar-sep"></div>
-          <div class="toolbar-group">
-            <button id="plotter-draw" class="tool-btn" title="连线模式">✏️ 连线</button>
-            <button id="plotter-close-poly" class="tool-btn" title="闭合轮廓" disabled>🔗 闭合</button>
-            <button id="plotter-finish-poly" class="tool-btn" title="结束连线" disabled>✅ 结束</button>
-            <button id="plotter-undo-seg" class="tool-btn" title="撤销一段" disabled>↩️ 撤销</button>
-          </div>
-          <div class="toolbar-sep"></div>
-          <div class="toolbar-group">
-            <button id="plotter-undo-poly" class="tool-btn" title="删除最后一条轮廓线">🗑️ 删线</button>
-            <button id="plotter-fit" class="tool-btn" title="自适应视图">🔍 适配</button>
-          </div>
-        </div>
-        <div class="plotter-toolbar" style="margin-top:6px">
-          <div class="toolbar-group">
-            <button id="plotter-export-png" class="tool-btn">📷 导出 PNG</button>
-            <button id="plotter-export-dxf" class="tool-btn">📐 导出 DXF</button>
-          </div>
-          <div class="toolbar-sep"></div>
-          <div class="toolbar-group">
-            <label class="tool-label">比例尺 1:</label>
-            <input type="number" id="plotter-scale" class="tool-input" placeholder="自动" min="1" step="1">
-            <button id="plotter-scale-apply" class="tool-btn-sm">应用</button>
-          </div>
-        </div>
+      <!-- 返回按钮 -->
+      <section class="plotter-header">
+        <button id="btn-back-calc" class="btn-back">← 返回计算</button>
+        <h2 class="plotter-title">细部测量绘图</h2>
       </section>
 
       <!-- 画布 -->
       <section class="card plotter-canvas-card">
         <div class="plotter-canvas-wrap">
           <canvas id="plotter-canvas"></canvas>
+        </div>
+      </section>
+
+      <!-- 工具栏：分组布局 -->
+      <section class="card plotter-tools-card">
+        <!-- 绘图操作 -->
+        <div class="tool-section">
+          <div class="tool-section-label">绘图</div>
+          <div class="tool-section-btns">
+            <button id="plotter-draw" class="tool-btn" title="连线模式">✏️ 连线</button>
+            <button id="plotter-close-poly" class="tool-btn" title="闭合轮廓" disabled>🔗 闭合</button>
+            <button id="plotter-finish-poly" class="tool-btn" title="结束连线" disabled>✅ 结束</button>
+            <button id="plotter-undo-seg" class="tool-btn" title="撤销一段" disabled>↩️ 撤销</button>
+            <button id="plotter-undo-poly" class="tool-btn" title="删除最后一条线">🗑️ 删线</button>
+          </div>
+        </div>
+        <!-- 视图 -->
+        <div class="tool-section">
+          <div class="tool-section-label">视图</div>
+          <div class="tool-section-btns">
+            <button id="plotter-bg-grid" class="tool-btn active" title="方格纸">📏 方格纸</button>
+            <button id="plotter-bg-plain" class="tool-btn" title="白纸">📄 白纸</button>
+            <button id="plotter-fit" class="tool-btn" title="自适应视图">🔍 适配</button>
+            <span class="tool-inline">
+              <label class="tool-label">比例尺 1:</label>
+              <input type="number" id="plotter-scale" class="tool-input" placeholder="自动" min="1" step="1">
+              <button id="plotter-scale-apply" class="tool-btn-sm">应用</button>
+            </span>
+          </div>
+        </div>
+        <!-- 导出 -->
+        <div class="tool-section">
+          <div class="tool-section-label">导出</div>
+          <div class="tool-section-btns">
+            <button id="plotter-export-png" class="tool-btn">📷 PNG</button>
+            <button id="plotter-export-dxf" class="tool-btn">📐 DXF</button>
+          </div>
         </div>
       </section>
 
@@ -371,7 +382,6 @@
             <button id="btn-add-detail" class="btn-add-point">+ 添加</button>
           </div>
         </div>
-
         <!-- 批量导入 -->
         <details class="batch-import">
           <summary>📋 批量导入（从全站仪/Excel 粘贴）</summary>
@@ -386,12 +396,6 @@
       <!-- 已添加的点列表 -->
       <section class="card">
         <h2 class="card-title">已有点位 <span id="point-count" class="hint"></span></h2>
-        <div class="control-source-bar">
-          <div id="control-source" class="control-source-info">
-            <span class="hint">尚未导入控制点 — 请先在闭合/附合导线页面完成计算</span>
-          </div>
-          <button id="btn-reimport" class="link-btn" style="font-size:12px; padding:4px 10px; min-height:28px;">🔄 重新导入</button>
-        </div>
         <div id="point-list" class="detail-point-list">
           <div class="empty-hint">暂无点位，请先计算导线或手动添加</div>
         </div>

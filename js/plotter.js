@@ -494,12 +494,40 @@ export class Plotter {
     ctx.setLineDash([]);
   }
 
+  _isPointInCurrentPoly(p) {
+    if (!this.currentPoly || this.currentPoly.length === 0) return false;
+    return this.currentPoly.some(cp => cp.name === p.name);
+  }
+
   _drawControlPoints(ctx) {
     for (const p of this.controlPoints) {
       const cx = this._surveyToCanvasX(p);
       const cy = this._surveyToCanvasY(p);
-      this._drawTriangle(ctx, cx, cy, 7, '#dc2626');
-      this._drawPointLabel(ctx, p, cx, cy, '#dc2626');
+      
+      const isSelected = this._isPointInCurrentPoly(p);
+      const isLastSelected = this.currentPoly && this.currentPoly.length > 0 && 
+                             this.currentPoly[this.currentPoly.length - 1].name === p.name;
+                             
+      let color = '#dc2626'; // 默认控制点颜色（红色）
+      let size = 7;
+      if (isSelected) {
+        color = '#d97706'; // 选中时变成橙色
+      }
+      
+      this._drawTriangle(ctx, cx, cy, size, color);
+      
+      // 如果是最后一个选中的点，画一个双层外环/光晕
+      if (isLastSelected) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      
+      this._drawPointLabel(ctx, p, cx, cy, color, isSelected);
     }
   }
 
@@ -508,16 +536,39 @@ export class Plotter {
       const cx = this._surveyToCanvasX(p);
       const cy = this._surveyToCanvasY(p);
 
+      const isSelected = this._isPointInCurrentPoly(p);
+      const isLastSelected = this.currentPoly && this.currentPoly.length > 0 && 
+                             this.currentPoly[this.currentPoly.length - 1].name === p.name;
+
       // 圆点
       ctx.beginPath();
-      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#2563eb';
+      let radius = 4;
+      let color = '#2563eb'; // 默认细部点颜色（蓝色）
+      
+      if (isSelected) {
+        color = '#f59e0b'; // 选中时变成橙色
+        radius = 5.5;      // 稍微大一点
+      }
+      
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
       ctx.fill();
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      this._drawPointLabel(ctx, p, cx, cy, '#1e40af');
+      // 如果是最后一个选中的点，画一个双层外环/光晕
+      if (isLastSelected) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      this._drawPointLabel(ctx, p, cx, cy, isSelected ? '#d97706' : '#1e40af', isSelected);
     }
   }
 
@@ -536,11 +587,11 @@ export class Plotter {
   }
 
   /** 绘制点标注（点号 + 坐标） */
-  _drawPointLabel(ctx, p, cx, cy, color) {
+  _drawPointLabel(ctx, p, cx, cy, color, isSelected = false) {
     const label = p.name || '';
     const coordText = `(${p.x.toFixed(3)}, ${p.y.toFixed(3)})`;
 
-    ctx.font = '600 11px -apple-system, "PingFang SC", sans-serif';
+    ctx.font = isSelected ? 'bold 11px -apple-system, "PingFang SC", sans-serif' : '600 11px -apple-system, "PingFang SC", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
 
@@ -549,17 +600,31 @@ export class Plotter {
 
     // 点名
     const m1 = ctx.measureText(label);
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillStyle = isSelected ? 'rgba(254, 243, 199, 0.95)' : 'rgba(255,255,255,0.85)';
     ctx.fillRect(labelX - 2, labelY - 12, m1.width + 4, 14);
+    
+    if (isSelected) {
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(labelX - 2, labelY - 12, m1.width + 4, 14);
+    }
+    
     ctx.fillStyle = color;
     ctx.fillText(label, labelX, labelY);
 
     // 坐标
     ctx.font = '9px -apple-system, "PingFang SC", sans-serif';
     const m2 = ctx.measureText(coordText);
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillStyle = isSelected ? 'rgba(254, 243, 199, 0.95)' : 'rgba(255,255,255,0.85)';
     ctx.fillRect(labelX - 2, labelY, m2.width + 4, 12);
-    ctx.fillStyle = '#6b7280';
+    
+    if (isSelected) {
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(labelX - 2, labelY, m2.width + 4, 12);
+    }
+    
+    ctx.fillStyle = isSelected ? '#b45309' : '#6b7280';
     ctx.fillText(coordText, labelX, labelY + 11);
   }
 

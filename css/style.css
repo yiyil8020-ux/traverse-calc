@@ -488,73 +488,252 @@ body {
 
 /* ── 细部绘图页面 ─────────────────────── */
 
-/* 工具栏 */
-.plotter-toolbar-card { padding: 10px; }
-.plotter-toolbar {
+/* 略图标题行 */
+.card-title-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
 }
-.toolbar-group {
+.card-title-row .card-title { margin: 0; }
+.btn-sketch-plotter {
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+  border: none; border-radius: 6px;
+  font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.3);
+}
+.btn-sketch-plotter:hover { opacity: .88; transform: translateY(-1px); }
+.btn-sketch-plotter:active { transform: scale(.97); }
+
+/* 绘图页头部 */
+.plotter-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+  margin-bottom: 10px;
 }
-.toolbar-sep {
-  width: 1px; height: 24px;
-  background: var(--border);
-  margin: 0 4px;
-  flex-shrink: 0;
-}
-.tool-btn {
-  padding: 6px 10px;
+.btn-back {
+  padding: 6px 14px;
   background: var(--bg);
   border: 1.5px solid var(--border);
   border-radius: 6px;
-  font: inherit; font-size: 12px; font-weight: 500;
+  font: inherit; font-size: 13px; font-weight: 500;
   cursor: pointer;
-  white-space: nowrap;
-  transition: all .12s;
-  min-height: 34px;
   color: var(--text);
-}
-.tool-btn:hover { background: #e2e8f0; }
-.tool-btn:active { transform: scale(.97); }
-.tool-btn.active {
-  background: var(--primary); color: #fff;
-  border-color: var(--primary);
-}
-.tool-btn:disabled {
-  opacity: 0.4; cursor: not-allowed;
-}
-.tool-btn-sm {
-  padding: 4px 10px;
-  background: var(--primary); color: #fff;
-  border: none; border-radius: 5px;
-  font: inherit; font-size: 12px; font-weight: 600;
-  cursor: pointer;
-  min-height: 30px;
-  transition: opacity .12s;
-}
-.tool-btn-sm:hover { opacity: .85; }
-.tool-label {
-  font-size: 12px; font-weight: 500;
-  color: var(--text-muted);
+  transition: all .12s;
   white-space: nowrap;
+}
+.btn-back:hover { background: #e2e8f0; }
+.plotter-title {
+  font-size: 16px; font-weight: 700;
+  color: var(--primary);
+  margin: 0;
+}
+
+/* 工具栏分组 */
+.plotter-tools-card { padding: 12px; }
+.tool-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+.tool-section + .tool-section {
+  border-top: 1px solid var(--border);
+}
+.tool-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 36px;
+  padding-top: 7px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.tool-section-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 优化工具栏按钮的质感与区分 */
+.tool-btn {
+  padding: 6px 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 34px;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.tool-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.tool-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 核心“连线”主按钮样式 */
+#plotter-draw {
+  border-color: #cbd5e1;
+}
+#plotter-draw.active {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border-color: #d97706;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+  font-weight: 600;
+  animation: pulse 2s infinite;
+}
+
+/* 连线过程中的特定控制按钮：闭合、结束 */
+#plotter-close-poly:not(:disabled) {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+#plotter-close-poly:not(:disabled):hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1e40af;
+}
+
+#plotter-finish-poly:not(:disabled) {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+  font-weight: 600;
+}
+#plotter-finish-poly:not(:disabled):hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+/* 撤销和删除按钮 */
+#plotter-undo-seg:not(:disabled) {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+#plotter-undo-poly {
+  color: #ef4444;
+  border-color: #fee2e2;
+  background: #fef2f2;
+}
+#plotter-undo-poly:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.1);
+}
+
+/* 视图切换按钮样式 */
+.tool-btn[id^="plotter-bg-"] {
+  border-radius: 6px;
+}
+.tool-btn[id^="plotter-bg-"].active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(15, 118, 110, 0.2);
+}
+
+/* 比例尺输入组合 */
+.tool-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 4px;
+  min-height: 34px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.tool-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 0 6px;
 }
 .tool-input {
-  width: 70px;
-  padding: 4px 8px;
-  font: inherit; font-size: 13px;
-  border: 1.5px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
+  width: 60px;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
   outline: none;
   text-align: center;
-  min-height: 30px;
+  min-height: auto;
 }
-.tool-input:focus { border-color: var(--primary); background: #fff; }
+.tool-btn-sm {
+  padding: 4px 8px;
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 24px;
+  transition: background 0.15s;
+}
+.tool-btn-sm:hover {
+  background: #0f766e;
+}
+
+/* 导出按钮渐变色 */
+#plotter-export-png {
+  background: linear-gradient(to bottom, #ffffff, #f0fdf4);
+  border-color: #bbf7d0;
+  color: #166534;
+}
+#plotter-export-png:hover {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+#plotter-export-dxf {
+  background: linear-gradient(to bottom, #ffffff, #fffbeb);
+  border-color: #fde68a;
+  color: #92400e;
+}
+#plotter-export-dxf:hover {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
 
 /* 画布 */
 .plotter-canvas-card { padding: 0; overflow: hidden; }
@@ -633,34 +812,6 @@ body {
 }
 .batch-body textarea:focus { border-color: var(--primary); background: #fff; }
 
-/* 控制点来源信息 */
-.control-source-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-  margin-bottom: 8px;
-}
-.control-source-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-.source-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  background: #0f766e;
-  color: #fff;
-}
-
 /* 点列表 */
 .detail-point-list {
   max-height: 300px;
@@ -736,3 +887,4 @@ body {
 }
 
 [hidden] { display: none !important; }
+
