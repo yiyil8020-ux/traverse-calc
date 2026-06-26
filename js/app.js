@@ -1122,7 +1122,7 @@ async function copyAsTsv() {
 
 function exportPng() {
   if (!lastResult) { alert('暂无可导出的结果'); return; }
-  const W = 1200, rowH = 28, headH = 36, footH = 60;
+  const W = 1200, rowH = 28, headH = 36, footH = 90;
   
   const trs = Array.from($$('#result-body tr')).filter(tr => tr.querySelectorAll('td').length === 14);
   const rows = trs.length;
@@ -1173,15 +1173,18 @@ function exportPng() {
   });
 
   ctx.fillStyle = '#fef3c7'; ctx.fillRect(0, y, W, footH);
-  ctx.fillStyle = '#92400e'; ctx.font = 'bold 14px -apple-system, sans-serif';
+  ctx.fillStyle = '#92400e'; ctx.font = 'bold 13px -apple-system, sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const cl = lastResult.closure;
   const kText = cl.k > 0 ? `1/${Math.round(1 / cl.k)}` : '∞';
   let modeNotes = [];
   if (state.integerMode) modeNotes.push('整数修正模式');
   if (state.roundedMode) modeNotes.push('手工验算模式');
   const modeNote = modeNotes.length ? `  ｜ ${modeNotes.join(' + ')}` : '';
-  ctx.fillText(`fβ=${formatSeconds(cl.fBeta)} (±${cl.fBetaLimit.toFixed(1)}″)  fx=${cl.fx.toFixed(4)}  fy=${cl.fy.toFixed(4)}  fs=${cl.fs.toFixed(4)}  K=${kText}${modeNote}`, 12, y + 22);
-  ctx.fillText(cl.fBetaOver || cl.kOver ? '❌ 超限（仍给出平差结果）' : '✅ 满足限差', 12, y + 44);
+  const kLimitText = `1/${state.kLimit.toLocaleString()}`;
+  ctx.fillText(`fβ = ${formatSeconds(cl.fBeta)}    fβ允 = ±${cl.fBetaLimit.toFixed(1)}″    fx = ${cl.fx.toFixed(4)} m    fy = ${cl.fy.toFixed(4)} m`, 12, y + 18);
+  ctx.fillText(`fs = ${cl.fs.toFixed(4)} m    K = ${kText}    K限 = ${kLimitText}${modeNote}`, 12, y + 42);
+  ctx.fillText(cl.fBetaOver || cl.kOver ? '❌ 超限（仍给出平差结果）' : '✅ 满足限差', 12, y + 66);
 
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
