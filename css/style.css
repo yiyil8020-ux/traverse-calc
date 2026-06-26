@@ -886,5 +886,268 @@ body {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* ═══════════════════════════════════════════
+   桌面端响应式适配 (≥ 900px)
+   仅通过 media query 追加样式，不改变移动端
+   ═══════════════════════════════════════════ */
+
+@media (min-width: 900px) {
+
+  /* ── 整体布局 ── */
+  body {
+    font-size: 15px;
+  }
+
+  .container {
+    max-width: 960px;
+    padding: 12px 24px 100px;
+    gap: 16px;
+  }
+
+  /* ── 顶栏 ── */
+  .topbar {
+    padding: 14px 32px;
+    justify-content: flex-start;
+    gap: 24px;
+  }
+  .app-title {
+    font-size: 20px;
+    letter-spacing: 1.5px;
+  }
+  .topbar-actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+  .icon-btn {
+    width: 40px; height: 40px;
+    font-size: 19px;
+    border-radius: 8px;
+    transition: background .15s, transform .1s;
+  }
+  .icon-btn:hover {
+    background: var(--bg);
+    transform: translateY(-1px);
+  }
+
+  /* ── 模式切换 ── */
+  .sticky-bar {
+    padding: 10px 32px 8px;
+  }
+  .mode-switch {
+    max-width: 960px;
+  }
+  .mode-btn {
+    font-size: 15px;
+    padding: 12px 16px;
+    transition: all .18s;
+  }
+  .mode-btn:hover:not(.active) {
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── 卡片 ── */
+  .card {
+    padding: 20px 24px;
+    gap: 14px;
+    border-radius: 14px;
+    transition: box-shadow .2s;
+  }
+  .card:hover {
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
+  }
+  .card-title {
+    font-size: 16px;
+  }
+
+  /* ── 表单 ── */
+  .form-row {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .form-field input, .form-field select {
+    padding: 10px 14px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+  .dms-input input {
+    padding: 10px 6px;
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  /* ── 表格 ── */
+  .data-table {
+    font-size: 14px;
+  }
+  .data-table th, .data-table td {
+    padding: 10px 8px;
+  }
+  .result-table {
+    font-size: 13px;
+  }
+
+  /* ── 闭合差汇总 ── */
+  .closure-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .closure-item {
+    padding: 12px 10px;
+  }
+
+  /* ── 略图 ── */
+  #sketch {
+    height: 420px;
+  }
+
+  /* ── 底部计算按钮 ── */
+  .compute-bar {
+    max-width: 960px;
+    padding: 12px 24px max(12px, env(safe-area-inset-bottom));
+  }
+  .btn-compute {
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 14px;
+    font-size: 16px;
+    min-height: 52px;
+  }
+
+  /* ── 细部绘图 ── */
+  .plotter-header {
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+  .plotter-title {
+    font-size: 18px;
+  }
+  #plotter-canvas {
+    height: 560px;
+  }
+  .plotter-tools-card {
+    padding: 16px 20px;
+  }
+  .tool-section {
+    padding: 10px 0;
+    gap: 14px;
+  }
+  .point-input-row {
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 12px;
+  }
+
+  /* ── 模态框 ── */
+  .modal-content {
+    max-width: 640px;
+  }
+  .modal-wide {
+    max-width: 800px;
+  }
+}
+
+/* ── 超宽桌面 (≥ 1200px) ── */
+@media (min-width: 1200px) {
+
+  .container {
+    max-width: 1100px;
+    padding: 16px 32px 110px;
+  }
+
+  .topbar {
+    padding: 14px 48px;
+  }
+
+  .sticky-bar {
+    padding: 10px 48px 8px;
+  }
+  .mode-switch {
+    max-width: 480px;
+  }
+
+  .card {
+    padding: 24px 32px;
+    gap: 16px;
+    border-radius: 16px;
+  }
+
+  /* 起算数据在大屏可展示更多列 */
+  .form-row {
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+
+  .closure-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .compute-bar {
+    max-width: 1100px;
+    padding: 14px 32px max(14px, env(safe-area-inset-bottom));
+  }
+  .btn-compute {
+    max-width: 520px;
+    min-height: 54px;
+    font-size: 17px;
+    border-radius: 16px;
+  }
+
+  /* 略图更高 */
+  #sketch {
+    height: 480px;
+  }
+
+  /* 细部绘图画布更大 */
+  #plotter-canvas {
+    height: 640px;
+  }
+
+  /* 模态框更宽一些 */
+  .modal-content {
+    max-width: 680px;
+  }
+  .modal-wide {
+    max-width: 880px;
+  }
+}
+
+/* ── 鼠标悬停增强（仅非触摸设备） ── */
+@media (hover: hover) and (pointer: fine) {
+  .mode-btn:hover:not(.active) {
+    background: #f1f5f9;
+    color: var(--text);
+  }
+  .btn-add-row:hover {
+    background: rgba(15, 118, 110, 0.06);
+    border-color: var(--primary);
+  }
+  .big-btn:hover {
+    background: var(--bg);
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+  }
+  .btn-del:hover {
+    background: #fee2e2;
+    color: var(--danger);
+  }
+  .check-row:hover {
+    background: #ccfbf1;
+  }
+  .proj-actions button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+  .btn-compute:hover:not(.dirty) {
+    background: #0d6b63;
+    box-shadow: 0 3px 12px rgba(15, 118, 110, 0.3);
+    transform: translateY(-1px);
+  }
+  .btn-sketch-plotter:hover {
+    box-shadow: 0 2px 6px rgba(15, 118, 110, 0.35);
+  }
+}
+
 [hidden] { display: none !important; }
 
