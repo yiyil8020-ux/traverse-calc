@@ -21,7 +21,7 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -59,9 +59,11 @@ body {
 /* ── 容器 ───────────────────────────────── */
 .container {
   max-width: 720px;
+  width: 100%;
   margin: 0 auto;
   padding: 4px 12px 100px;        /* 底部留出 sticky 计算按钮空间 */
   display: flex; flex-direction: column; gap: 12px;
+  overflow-x: hidden;
 }
 
 /* ── 模式切换（贴顶栏下方，滚动时也始终可见） ─ */
@@ -944,7 +946,7 @@ body {
   /* ─── 平差计算页面：左右双栏 ─── */
   #page-calc {
     display: grid;
-    grid-template-columns: minmax(340px, 420px) 1fr;
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
     gap: 16px 24px;
     align-items: start;
   }
@@ -953,6 +955,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0; /* 允许在 grid 中收缩 */
     /* 输入区在滚动时吸顶，方便边看结果边改输入 */
     position: sticky;
     top: 80px;
@@ -972,6 +975,18 @@ body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;       /* 关键：允许在 grid 中收缩 */
+    overflow: hidden;   /* 防止宽内容撑破栏宽 */
+  }
+
+  /* 结果表格在右栏内部水平滚动，而不是撑破整个页面 */
+  .result-column .card {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .result-column .table-scroll {
+    overflow-x: auto;
+    margin: 0;
   }
 
   /* footer 跨两栏 */
@@ -982,7 +997,7 @@ body {
   /* ─── 细部绘图页面：左画布 + 右侧栏 ─── */
   #page-plotter {
     display: grid;
-    grid-template-columns: 1fr minmax(300px, 380px);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
     gap: 16px 24px;
     align-items: start;
   }
@@ -1001,12 +1016,14 @@ body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
   }
 
   .plotter-side-col {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
     /* 侧栏也吸顶 */
     position: sticky;
     top: 80px;
@@ -1125,7 +1142,7 @@ body {
   }
 
   #page-calc {
-    grid-template-columns: minmax(380px, 460px) 1fr;
+    grid-template-columns: minmax(380px, 460px) minmax(0, 1fr);
     gap: 20px 32px;
   }
 
