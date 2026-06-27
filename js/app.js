@@ -1545,6 +1545,249 @@ function processImportedStations(stations) {
   $('#btn-import-confirm').disabled = false;
 }
 
+let tempImportedDetails = null;
+
+function parseDetailCSV(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const rawParts = line.split(/[,;]/);
+    if (rawParts.length < 3) continue;
+    const parts = rawParts.slice(0, 3).map(p => p.replace(/^["']|["']$/g, '').trim());
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      x: parseFloat(parts[1]),
+      y: parseFloat(parts[2])
+    });
+  }
+  return result;
+}
+
+function parseDetailTXT(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const parts = line.split(/[\t\s]+/).map(p => p.trim());
+    if (parts.length < 3) continue;
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      x: parseFloat(parts[1]),
+      y: parseFloat(parts[2])
+    });
+  }
+  return result;
+}
+
+function parseDetailMD(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (!line.startsWith('|')) continue;
+    
+    const rawParts = line.split('|').map(p => p.trim()).filter((p, idx) => idx > 0 && idx < line.split('|').length - 1);
+    if (rawParts.length < 3) continue;
+    const parts = rawParts.slice(0, 3);
+    
+    if (parts[0].includes('---') || parts[1].includes('---')) continue;
+    
+    const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2]));
+    if (isHeader) continue;
+    
+    result.push({
+      name: parts[0],
+      x: parseFloat(parts[1]),
+      y: parseFloat(parts[2])
+    });
+  }
+  return result;
+}
+
+function parseDetailXLSX(arrayBuffer) {
+  const data = new Uint8Array(arrayBuffer);
+  const workbook = XLSX.read(data, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < json.length; i++) {
+    const row = json[i];
+    if (!row || row.length < 3) continue;
+    
+    const parts = row.slice(0, 3).map(val => (val !== undefined && val !== null) ? String(val).trim() : '');
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      x: parseFloat(parts[1]),
+      y: parseFloat(parts[2])
+    });
+  }
+  return result;
+}
+
+function validateImportDetailData(points) {
+  if (!points || points.length === 0) {
+    return { valid: false, error: '文件内未找到有效数据！' };
+  }
+  
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const lineNum = i + 1;
+    
+    if (!p.name || p.name.trim() === '') {
+      return { valid: false, error: `第 ${lineNum} 行：点名不能为空！` };
+    }
+    
+    const xVal = Number(p.x);
+    const yVal = Number(p.y);
+    
+    if (isNaN(xVal)) {
+      return { valid: false, error: `第 ${lineNum} 行（点名 ${p.name}）：X 坐标必须为有效数值！` };
+    }
+    if (isNaN(yVal)) {
+      return { valid: false, error: `第 ${lineNum} 行（点名 ${p.name}）：Y 坐标必须为有效数值！` };
+    }
+  }
+  return { valid: true, error: null };
+}
+
+function openImportDetailModal() {
+  console.log('openImportDetailModal() called');
+  const modal = $('#modal-import-detail');
+  if (!modal) {
+    alert('错误：页面尚未载入最新版本的 HTML 结构（找不到 #modal-import-detail）。\n\n请在浏览器中按下 Ctrl+F5 或 Cmd+Shift+R 强制清除缓存并重新载入，然后再进行导入。');
+    return;
+  }
+  modal.hidden = false;
+  
+  const fileInput = $('#import-detail-file-input');
+  if (fileInput) fileInput.value = '';
+  
+  const filename = $('#import-detail-filename');
+  if (filename) filename.textContent = '';
+  
+  const status = $('#import-detail-status');
+  if (status) status.hidden = true;
+  
+  const preview = $('#import-detail-preview-wrap');
+  if (preview) preview.hidden = true;
+  
+  const confirmBtn = $('#btn-import-detail-confirm');
+  if (confirmBtn) confirmBtn.disabled = true;
+  
+  tempImportedDetails = null;
+}
+
+function handleImportDetailFile(file) {
+  if (!file) return;
+  
+  $('#import-detail-filename').textContent = `已选择文件: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  $('#import-detail-status').hidden = true;
+  $('#import-detail-preview-wrap').hidden = true;
+  $('#btn-import-detail-confirm').disabled = true;
+  tempImportedDetails = null;
+  
+  const ext = file.name.split('.').pop().toLowerCase();
+  
+  if (ext === 'xlsx' || ext === 'xls') {
+    loadSheetJS(() => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const points = parseDetailXLSX(e.target.result);
+          processImportedDetails(points);
+        } catch (err) {
+          showImportDetailError('Excel 解析失败: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        let points = [];
+        if (ext === 'csv') {
+          points = parseDetailCSV(text);
+        } else if (ext === 'md') {
+          points = parseDetailMD(text);
+        } else {
+          points = parseDetailTXT(text);
+        }
+        processImportedDetails(points);
+      } catch (err) {
+        showImportDetailError('文件解析失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function showImportDetailError(msg) {
+  const status = $('#import-detail-status');
+  status.textContent = msg;
+  status.hidden = false;
+  $('#import-detail-preview-wrap').hidden = true;
+  $('#btn-import-detail-confirm').disabled = true;
+}
+
+function processImportedDetails(points) {
+  const validation = validateImportDetailData(points);
+  if (!validation.valid) {
+    showImportDetailError(validation.error);
+    return;
+  }
+  
+  tempImportedDetails = points;
+  
+  const tbody = $('#import-detail-preview-body');
+  tbody.innerHTML = '';
+  points.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td class="col-num">${p.x.toFixed(3)}</td>
+      <td class="col-num">${p.y.toFixed(3)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  
+  $('#import-detail-row-count').textContent = points.length;
+  $('#import-detail-preview-wrap').hidden = false;
+  $('#btn-import-detail-confirm').disabled = false;
+}
+
 // ─────────────────────────────────────────────
 // 细部绘图事件
 // ─────────────────────────────────────────────
@@ -1658,6 +1901,44 @@ function bindPlotterEvents() {
       renderPointList();
     } else {
       alert('未能识别有效数据，请检查格式');
+    }
+  });
+
+  // 细部点文件导入事件
+  $('#btn-import-detail-file')?.addEventListener('click', () => {
+    closeModals();
+    openImportDetailModal();
+  });
+  $('#btn-select-detail-file')?.addEventListener('click', () => {
+    const input = $('#import-detail-file-input');
+    if (input) {
+      input.click();
+    } else {
+      alert('错误：未在页面中找到文件上传元素 (#import-detail-file-input)。');
+    }
+  });
+  $('#import-detail-file-input')?.addEventListener('change', (e) => {
+    handleImportDetailFile(e.target.files[0]);
+  });
+  $('#btn-import-detail-confirm')?.addEventListener('click', () => {
+    if (!plotter) return;
+    if (tempImportedDetails && tempImportedDetails.length > 0) {
+      let count = 0;
+      let skipped = 0;
+      tempImportedDetails.forEach(p => {
+        if (plotter.addDetailPoint(p.name, p.x, p.y)) {
+          count++;
+        } else {
+          skipped++;
+        }
+      });
+      closeModals();
+      renderPointList();
+      if (skipped > 0) {
+        alert(`成功导入 ${count} 个细部点数据，跳过 ${skipped} 个重复点名！`);
+      } else {
+        alert(`已成功导入 ${count} 个细部点数据！`);
+      }
     }
   });
 

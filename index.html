@@ -395,7 +395,10 @@
           <div class="batch-body">
             <p class="hint">每行一个点，格式：<code>点名, X, Y</code> 或 <code>点名 X Y</code>（支持逗号、空格、Tab 分隔）</p>
             <textarea id="batch-input" rows="5" placeholder="P1, 100.123, 200.456&#10;P2, 101.234, 201.567&#10;P3, 102.345, 202.678"></textarea>
-            <button id="btn-batch-import" class="link-btn">导入</button>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button id="btn-batch-import" class="link-btn" style="flex: 1; margin: 0; text-align: center;">直接导入文本</button>
+              <button id="btn-import-detail-file" class="link-btn" style="flex: 1; margin: 0; text-align: center; white-space: nowrap;">📥 文件导入 (.xlsx/csv/txt/md)</button>
+            </div>
           </div>
         </details>
       </section>
@@ -522,6 +525,80 @@
           <div style="display: flex; gap: 12px; margin-top: 8px;">
             <button id="btn-import-cancel" class="big-btn modal-close" style="flex: 1; text-align: center; margin: 0; min-height: 44px; border-color: var(--border);">取消</button>
             <button id="btn-import-confirm" class="big-btn" style="flex: 1; text-align: center; margin: 0; min-height: 44px; background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;" disabled>确认导入</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态: 导入细部点数据 -->
+  <div id="modal-import-detail" class="modal" hidden>
+    <div class="modal-backdrop modal-close"></div>
+    <div class="modal-content modal-wide">
+      <div class="modal-head">
+        <h2>导入细部点坐标数据</h2>
+        <button class="modal-close icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- 格式说明折叠面板 -->
+          <details class="import-tips-details" open>
+            <summary style="font-weight: 600; cursor: pointer; color: var(--primary-2); margin-bottom: 4px; font-size: 14px;">
+              📁 细部点数据格式标准规范 (点击展开/折叠)
+            </summary>
+            <div style="font-size: 13px; color: var(--text-muted); background: var(--bg); padding: 12px; border-radius: var(--radius-sm); line-height: 1.6; display: flex; flex-direction: column; gap: 8px;">
+              <p>导入的文件需包含 <strong>3列数据</strong>，排列顺序如下：</p>
+              <ol style="margin: 0; padding-left: 20px;">
+                <li><strong>第1列（点名）</strong>：细部点名称（例如：P1, P2）</li>
+                <li><strong>第2列（X 坐标）</strong>：X 方向坐标值 (北方向，m)</li>
+                <li><strong>第3列（Y 坐标）</strong>：Y 方向坐标值 (东方向，m)</li>
+              </ol>
+              <div style="border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px;">
+                <strong>各格式说明：</strong>
+                <ul style="margin: 4px 0 0; padding-left: 20px;">
+                  <li><strong>Excel (.xlsx / .xls)</strong>：数据在第一个工作表，第 1 行为表头（将被自动跳过），数据从第 2 行开始。</li>
+                  <li><strong>CSV (.csv)</strong>：分号/逗号分隔，第 1 行为表头（将被自动跳过）。</li>
+                  <li><strong>TXT (.txt)</strong>：空格或 Tab 制表符分隔。第一行为字母等非数值表头自动跳过。</li>
+                  <li><strong>Markdown (.md)</strong>：标准表格，自动过滤表头和分割线。</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+
+          <!-- 文件选择区 -->
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+            <input type="file" id="import-detail-file-input" accept=".xlsx,.xls,.csv,.txt,.md" style="display: none;">
+            <button id="btn-select-detail-file" class="big-btn" style="flex: 1; text-align: center; margin: 0; min-height: 46px; font-weight: 600; border: 2px dashed var(--primary); color: var(--primary);">
+              📂 选择文件 (.xlsx, .csv, .txt, .md)
+            </button>
+          </div>
+          
+          <div id="import-detail-filename" style="font-size: 13px; font-weight: 600; color: var(--primary-2); text-align: center; word-break: break-all;"></div>
+
+          <!-- 提示/错误信息 -->
+          <div id="import-detail-status" class="warning-bar" style="background: #fee2e2; border-color: #fca5a5; color: #991b1b;" hidden></div>
+
+          <!-- 预览区域 -->
+          <div id="import-detail-preview-wrap" style="display: flex; flex-direction: column; gap: 6px;" hidden>
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--primary-2);">数据预览 (共 <span id="import-detail-row-count">0</span> 行)</h3>
+            <div class="table-scroll" style="max-height: 240px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff;">
+              <table class="data-table" style="min-width: 100%;">
+                <thead>
+                  <tr>
+                    <th>点名</th>
+                    <th>X 坐标 (m)</th>
+                    <th>Y 坐标 (m)</th>
+                  </tr>
+                </thead>
+                <tbody id="import-detail-preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 按钮操作区 -->
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <button id="btn-import-detail-cancel" class="big-btn modal-close" style="flex: 1; text-align: center; margin: 0; min-height: 44px; border-color: var(--border);">取消</button>
+            <button id="btn-import-detail-confirm" class="big-btn" style="flex: 1; text-align: center; margin: 0; min-height: 44px; background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;" disabled>确认导入</button>
           </div>
         </div>
       </div>
