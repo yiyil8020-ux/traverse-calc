@@ -1,5 +1,5 @@
 // Service Worker - 离线缓存
-const CACHE = 'traverse-calc-v31';
+const CACHE = 'traverse-calc-v32';
 const ASSETS = [
   './',
   './index.html',
@@ -45,4 +45,10 @@ self.addEventListener('fetch', (e) => {
       }).catch(() => cached);
     })
   );
+});
+
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

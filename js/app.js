@@ -986,7 +986,12 @@ function bindEvents() {
     openImportModal();
   });
   $('#btn-select-file')?.addEventListener('click', () => {
-    $('#import-file-input').click();
+    const input = $('#import-file-input');
+    if (input) {
+      input.click();
+    } else {
+      alert('错误：未在页面中找到隐藏的上传输入项 (#import-file-input)。请强制刷新重新载入页面。');
+    }
   });
   $('#import-file-input')?.addEventListener('change', (e) => {
     handleImportFile(e.target.files[0]);
@@ -1432,12 +1437,29 @@ function validateImportData(stations) {
 }
 
 function openImportModal() {
-  $('#modal-import').hidden = false;
-  $('#import-file-input').value = '';
-  $('#import-filename').textContent = '';
-  $('#import-status').hidden = true;
-  $('#import-preview-wrap').hidden = true;
-  $('#btn-import-confirm').disabled = true;
+  console.log('openImportModal() called');
+  const modal = $('#modal-import');
+  if (!modal) {
+    alert('错误：页面尚未载入最新版本的 HTML 结构（找不到 #modal-import）。\n\n请在浏览器中按下 Ctrl+F5 或 Cmd+Shift+R 强制清除缓存并重新载入，然后再进行导入。');
+    return;
+  }
+  modal.hidden = false;
+  
+  const fileInput = $('#import-file-input');
+  if (fileInput) fileInput.value = '';
+  
+  const filename = $('#import-filename');
+  if (filename) filename.textContent = '';
+  
+  const status = $('#import-status');
+  if (status) status.hidden = true;
+  
+  const preview = $('#import-preview-wrap');
+  if (preview) preview.hidden = true;
+  
+  const confirmBtn = $('#btn-import-confirm');
+  if (confirmBtn) confirmBtn.disabled = true;
+  
   tempImportedStations = null;
 }
 
@@ -1680,7 +1702,28 @@ if (document.readyState === 'loading') {
 // 注册 Service Worker（离线缓存）
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      // 检查是否有处于等待更新状态的 SW
+      if (reg.waiting) {
+        if (confirm('系统已完成后台更新，需要刷新页面应用新版数据导入等功能，是否立即刷新？')) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          window.location.reload();
+        }
+      }
+      
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (confirm('系统有新版本发布（包含数据导入优化），是否刷新页面应用更新？')) {
+                window.location.reload();
+              }
+            }
+          });
+        }
+      });
+    }).catch(err => {
       console.warn('SW 注册失败', err);
     });
   });
