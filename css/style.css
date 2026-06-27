@@ -419,6 +419,9 @@ body {
 .proj-actions .btn-del { color: var(--danger); border-color: #fecaca; }
 
 .export-actions { display: flex; flex-direction: column; gap: 10px; }
+.import-tips-details summary { outline: none; user-select: none; }
+.import-tips-details summary::-webkit-details-marker { color: var(--primary); }
+.import-tips-details[open] summary { margin-bottom: 8px; }
 .big-btn {
   width: 100%; padding: 14px;
   background: var(--surface);

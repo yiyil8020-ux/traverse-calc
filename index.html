@@ -445,6 +445,85 @@
         <button id="btn-export-png" class="big-btn">📷 结果表 → PNG</button>
         <button id="btn-export-json" class="big-btn">💾 导出 JSON 备份</button>
         <button id="btn-import-json" class="big-btn">📥 从 JSON 导入</button>
+        <button id="btn-import-file" class="big-btn">📥 导入测站数据 (Excel/CSV/TXT/MD)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模态: 导入测站数据 -->
+  <div id="modal-import" class="modal" hidden>
+    <div class="modal-backdrop modal-close"></div>
+    <div class="modal-content modal-wide">
+      <div class="modal-head">
+        <h2>导入测站观测数据</h2>
+        <button class="modal-close icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- 格式说明折叠面板 -->
+          <details class="import-tips-details" open>
+            <summary style="font-weight: 600; cursor: pointer; color: var(--primary-2); margin-bottom: 4px; font-size: 14px;">
+              📁 外部表格/文本数据格式标准规范 (点击展开/折叠)
+            </summary>
+            <div style="font-size: 13px; color: var(--text-muted); background: var(--bg); padding: 12px; border-radius: var(--radius-sm); line-height: 1.6; display: flex; flex-direction: column; gap: 8px;">
+              <p>导入的文件需包含 <strong>5列数据</strong>，排列顺序及定义如下：</p>
+              <ol style="margin: 0; padding-left: 20px;">
+                <li><strong>第1列（点名）</strong>：测站名称（例如：A, B, 1, 2）</li>
+                <li><strong>第2列（度）</strong>：观测角整度数</li>
+                <li><strong>第3列（分）</strong>：观测角整分数</li>
+                <li><strong>第4列（秒）</strong>：观测角秒数（支持小数）</li>
+                <li><strong>第5列（边长）</strong>：<strong>该点到下一点的水平距离(m)</strong>（即边长，如 AB 边的距离）</li>
+              </ol>
+              <div style="border-top: 1px solid var(--border); padding-top: 6px; margin-top: 4px;">
+                <strong>各格式说明：</strong>
+                <ul style="margin: 4px 0 0; padding-left: 20px;">
+                  <li><strong>Excel (.xlsx / .xls)</strong>：数据存放在第一个工作表（Sheet1）中，第 1 行为表头（将被自动跳过），数据从第 2 行开始。</li>
+                  <li><strong>CSV (.csv)</strong>：使用逗号或分号分隔，第 1 行为表头（将被自动跳过）。</li>
+                  <li><strong>TXT (.txt)</strong>：使用空格或制表符(Tab)分隔。如果不含字母表头，直接第一行即为数据。</li>
+                  <li><strong>Markdown (.md)</strong>：标准 Markdown 表格格式，自动跳过表头和 <code>|---|</code> 分割线。</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+
+          <!-- 文件选择区 -->
+          <div style="display: flex; gap: 10px; align-items: center; margin-top: 4px;">
+            <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv,.txt,.md" style="display: none;">
+            <button id="btn-select-file" class="big-btn" style="flex: 1; text-align: center; margin: 0; min-height: 46px; font-weight: 600; border: 2px dashed var(--primary); color: var(--primary);">
+              📂 选择文件 (.xlsx, .csv, .txt, .md)
+            </button>
+          </div>
+          
+          <div id="import-filename" style="font-size: 13px; font-weight: 600; color: var(--primary-2); text-align: center; word-break: break-all;"></div>
+
+          <!-- 提示/错误信息 -->
+          <div id="import-status" class="warning-bar" style="background: #fee2e2; border-color: #fca5a5; color: #991b1b;" hidden></div>
+
+          <!-- 预览区域 -->
+          <div id="import-preview-wrap" style="display: flex; flex-direction: column; gap: 6px;" hidden>
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: var(--primary-2);">数据预览 (共 <span id="import-row-count">0</span> 行)</h3>
+            <div class="table-scroll" style="max-height: 240px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #fff;">
+              <table class="data-table" style="min-width: 100%;">
+                <thead>
+                  <tr>
+                    <th>点名</th>
+                    <th>度(°)</th>
+                    <th>分(′)</th>
+                    <th>秒(″)</th>
+                    <th>边长(m) <span style="font-weight: normal; font-size: 11px; color: var(--text-muted);">(下段距离)</span></th>
+                  </tr>
+                </thead>
+                <tbody id="import-preview-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 按钮操作区 -->
+          <div style="display: flex; gap: 12px; margin-top: 8px;">
+            <button id="btn-import-cancel" class="big-btn modal-close" style="flex: 1; text-align: center; margin: 0; min-height: 44px; border-color: var(--border);">取消</button>
+            <button id="btn-import-confirm" class="big-btn" style="flex: 1; text-align: center; margin: 0; min-height: 44px; background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 600;" disabled>确认导入</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -509,11 +588,15 @@
           <li><b>ΔX / ΔY</b>：<b>修正后</b>的坐标增量</li>
           <li><b>X / Y</b>：调整后最终坐标</li>
         </ul>
-        <h3>导出</h3>
+        <h3>导出与导入</h3>
         <ul>
-          <li><b>TSV</b>：制表符分隔，复制后直接粘到 Excel 单元格自动对齐</li>
-          <li><b>PNG</b>：结果表截图，可发微信/邮件</li>
-          <li><b>JSON</b>：完整工程备份</li>
+          <li><b>TSV 导出</b>：制表符分隔，复制后直接粘到 Excel 单元格自动对齐</li>
+          <li><b>PNG 导出</b>：结果表截图，可发微信/邮件</li>
+          <li><b>JSON 备份</b>：完整工程备份，包含全部起算数据和输入点数据</li>
+          <li><b>外部数据导入 (Excel/CSV/TXT/MD)</b>：
+            支持导入测站观测数据。导入格式必须包含 5 列，顺序依次为：<b>点名</b>、<b>度</b>、<b>分</b>、<b>秒</b>、<b>边长(即该点到下一点的水平距离)</b>。
+            Excel 的数据需要存放在第一个工作表（第 1 行为表头，数据从第 2 行开始）；CSV、Markdown 同样首行为表头；TXT 需采用空格或制表符分隔。
+          </li>
         </ul>
         <h3>数据保存</h3>
         <p>所有数据自动存到本地浏览器，<b>不会上传服务器</b>。点击顶部 💾 命名保存方案，📂 切换历史方案。</p>

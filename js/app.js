@@ -979,6 +979,27 @@ function bindEvents() {
   $('#btn-load').addEventListener('click', openLoadModal);
   $('#btn-export').addEventListener('click', openExportModal);
   $('#btn-help').addEventListener('click', openHelpModal);
+  
+  // 导入测站数据事件
+  $('#btn-import-file')?.addEventListener('click', () => {
+    closeModals();
+    openImportModal();
+  });
+  $('#btn-select-file')?.addEventListener('click', () => {
+    $('#import-file-input').click();
+  });
+  $('#import-file-input')?.addEventListener('change', (e) => {
+    handleImportFile(e.target.files[0]);
+  });
+  $('#btn-import-confirm')?.addEventListener('click', () => {
+    if (tempImportedStations && tempImportedStations.length >= 3) {
+      state.stations = tempImportedStations;
+      closeModals();
+      markDirty();
+      render();
+      alert(`已成功导入 ${state.stations.length} 个测站数据！`);
+    }
+  });
 
   // 模态关闭
   $$('.modal-close, .modal-backdrop').forEach(el => {
@@ -1235,10 +1256,268 @@ function importJson() {
       } catch (e) {
         alert('JSON 解析失败: ' + e.message);
       }
-    };
-    r.readAsText(f);
-  };
   inp.click();
+}
+
+let tempImportedStations = null;
+
+function loadSheetJS(callback) {
+  if (window.XLSX) {
+    callback();
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+  script.onload = callback;
+  script.onerror = () => {
+    alert('加载 Excel 解析库失败，请检查网络或重试。');
+  };
+  document.head.appendChild(script);
+}
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const rawParts = line.split(/[,;]/);
+    if (rawParts.length < 5) continue;
+    const parts = rawParts.slice(0, 5).map(p => p.replace(/^["']|["']$/g, '').trim());
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2])) || isNaN(Number(parts[3])) || isNaN(Number(parts[4]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      deg: parseInt(parts[1], 10),
+      min: parseInt(parts[2], 10),
+      sec: parseFloat(parts[3]),
+      distance: parseFloat(parts[4])
+    });
+  }
+  return result;
+}
+
+function parseTXT(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
+    const parts = line.split(/[\t\s]+/).map(p => p.trim());
+    if (parts.length < 5) continue;
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2])) || isNaN(Number(parts[3])) || isNaN(Number(parts[4]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      deg: parseInt(parts[1], 10),
+      min: parseInt(parts[2], 10),
+      sec: parseFloat(parts[3]),
+      distance: parseFloat(parts[4])
+    });
+  }
+  return result;
+}
+
+function parseMD(text) {
+  const lines = text.split(/\r?\n/);
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (!line.startsWith('|')) continue;
+    
+    const rawParts = line.split('|').map(p => p.trim()).filter((p, idx) => idx > 0 && idx < line.split('|').length - 1);
+    if (rawParts.length < 5) continue;
+    const parts = rawParts.slice(0, 5);
+    
+    if (parts[0].includes('---') || parts[1].includes('---')) continue;
+    
+    const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2])) || isNaN(Number(parts[3])) || isNaN(Number(parts[4]));
+    if (isHeader) continue;
+    
+    result.push({
+      name: parts[0],
+      deg: parseInt(parts[1], 10),
+      min: parseInt(parts[2], 10),
+      sec: parseFloat(parts[3]),
+      distance: parseFloat(parts[4])
+    });
+  }
+  return result;
+}
+
+function parseXLSX(arrayBuffer) {
+  const data = new Uint8Array(arrayBuffer);
+  const workbook = XLSX.read(data, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  const result = [];
+  let isFirst = true;
+  for (let i = 0; i < json.length; i++) {
+    const row = json[i];
+    if (!row || row.length < 5) continue;
+    
+    const parts = row.slice(0, 5).map(val => (val !== undefined && val !== null) ? String(val).trim() : '');
+    
+    if (isFirst) {
+      isFirst = false;
+      const isHeader = isNaN(Number(parts[1])) || isNaN(Number(parts[2])) || isNaN(Number(parts[3])) || isNaN(Number(parts[4]));
+      if (isHeader) continue;
+    }
+    
+    result.push({
+      name: parts[0],
+      deg: parseInt(parts[1], 10),
+      min: parseInt(parts[2], 10),
+      sec: parseFloat(parts[3]),
+      distance: parseFloat(parts[4])
+    });
+  }
+  return result;
+}
+
+function validateImportData(stations) {
+  if (!stations || stations.length === 0) {
+    return { valid: false, error: '文件内未找到有效测站数据，请检查列数和格式！' };
+  }
+  if (stations.length < 3) {
+    return { valid: false, error: `测站数量不足（仅有 ${stations.length} 个测站），导线平差至少需要 3 个测站！` };
+  }
+  
+  for (let i = 0; i < stations.length; i++) {
+    const s = stations[i];
+    const lineNum = i + 1;
+    
+    if (!s.name || s.name.trim() === '') {
+      return { valid: false, error: `第 ${lineNum} 行：测站名不能为空！` };
+    }
+    
+    const deg = Number(s.deg);
+    const min = Number(s.min);
+    const sec = Number(s.sec);
+    const dist = Number(s.distance);
+    
+    if (isNaN(deg) || deg < 0 || !Number.isInteger(deg)) {
+      return { valid: false, error: `第 ${lineNum} 行（测站 ${s.name}）：角度的“度”必须为非负整数！` };
+    }
+    if (isNaN(min) || min < 0 || min >= 60 || !Number.isInteger(min)) {
+      return { valid: false, error: `第 ${lineNum} 行（测站 ${s.name}）：角度的“分”必须为 0 到 59 之间的整数！` };
+    }
+    if (isNaN(sec) || sec < 0 || sec >= 60) {
+      return { valid: false, error: `第 ${lineNum} 行（测站 ${s.name}）：角度的“秒”必须为 0 到 59.99... 之间的数值！` };
+    }
+    if (isNaN(dist) || dist <= 0) {
+      return { valid: false, error: `第 ${lineNum} 行（测站 ${s.name}）：边长（水平距离）必须为大于 0 的数值！` };
+    }
+  }
+  return { valid: true, error: null };
+}
+
+function openImportModal() {
+  $('#modal-import').hidden = false;
+  $('#import-file-input').value = '';
+  $('#import-filename').textContent = '';
+  $('#import-status').hidden = true;
+  $('#import-preview-wrap').hidden = true;
+  $('#btn-import-confirm').disabled = true;
+  tempImportedStations = null;
+}
+
+function handleImportFile(file) {
+  if (!file) return;
+  
+  $('#import-filename').textContent = `已选择文件: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  $('#import-status').hidden = true;
+  $('#import-preview-wrap').hidden = true;
+  $('#btn-import-confirm').disabled = true;
+  tempImportedStations = null;
+  
+  const ext = file.name.split('.').pop().toLowerCase();
+  
+  if (ext === 'xlsx' || ext === 'xls') {
+    loadSheetJS(() => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const stations = parseXLSX(e.target.result);
+          processImportedStations(stations);
+        } catch (err) {
+          showImportError('Excel 解析失败: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result;
+        let stations = [];
+        if (ext === 'csv') {
+          stations = parseCSV(text);
+        } else if (ext === 'md') {
+          stations = parseMD(text);
+        } else {
+          stations = parseTXT(text);
+        }
+        processImportedStations(stations);
+      } catch (err) {
+        showImportError('文件解析失败: ' + err.message);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function showImportError(msg) {
+  const status = $('#import-status');
+  status.textContent = msg;
+  status.hidden = false;
+  $('#import-preview-wrap').hidden = true;
+  $('#btn-import-confirm').disabled = true;
+}
+
+function processImportedStations(stations) {
+  const validation = validateImportData(stations);
+  if (!validation.valid) {
+    showImportError(validation.error);
+    return;
+  }
+  
+  tempImportedStations = stations;
+  
+  const tbody = $('#import-preview-body');
+  tbody.innerHTML = '';
+  stations.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.name}</td>
+      <td class="col-num">${s.deg}</td>
+      <td class="col-num">${s.min}</td>
+      <td class="col-num">${s.sec}</td>
+      <td class="col-num">${s.distance.toFixed(3)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  
+  $('#import-row-count').textContent = stations.length;
+  $('#import-preview-wrap').hidden = false;
+  $('#btn-import-confirm').disabled = false;
 }
 
 // ─────────────────────────────────────────────
